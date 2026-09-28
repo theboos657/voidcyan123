@@ -42,7 +42,8 @@ public final class BlockOverlayRenderer {
    }
 
    /** True when vanilla's outline should be suppressed for the current target. */
-   public static boolean shouldReplaceVanilla(HitResult hit) {
+   public static boolean shouldReplaceVanilla() {
+      HitResult hit = MinecraftClient.getInstance().crosshairTarget;
       return VoidCyanClient.isBlockOverlayEnabled && hit != null && hit.getType() == HitResult.Type.BLOCK;
    }
 

@@ -2852,7 +2852,7 @@ public class VoidCyanClient implements ClientModInitializer {
          saveConfig();
       });
       // Hide vanilla's black block outline while Block Overlay is drawing its own.
-      WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, hitResult) -> !BlockOverlayRenderer.shouldReplaceVanilla(hitResult));
+      WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outlineState) -> !BlockOverlayRenderer.shouldReplaceVanilla());
       WorldRenderEvents.AFTER_ENTITIES.register((AfterEntities)context -> {
          if (isBlockOverlayEnabled) {
             BlockOverlayRenderer.render(context);
