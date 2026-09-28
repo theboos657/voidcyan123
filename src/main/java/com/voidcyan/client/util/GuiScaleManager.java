@@ -26,8 +26,8 @@ import net.minecraft.client.input.MouseInput;
 public final class GuiScaleManager {
    private static float gameScaleFactor = 3.0F;
    private static float multiplier = 1.0F;
-   private static final float MAX_LOGICAL_W = 520.0F;
-   private static final float MAX_LOGICAL_H = 292.0F;
+   private static final float LOGICAL_W = 520.0F;
+   private static final float LOGICAL_H = 292.0F;
 
    private GuiScaleManager() {
    }
@@ -38,11 +38,13 @@ public final class GuiScaleManager {
       float user = VoidCyanClient.clickGuiScale > 0.0F ? VoidCyanClient.clickGuiScale : 1.0F;
       float boost = 1.0F;
       if (client != null && client.getWindow() != null) {
-         // Low GUI Scale on a big framebuffer yields a huge logical space where the fixed-size
-         // layout looks zoomed out; boost so the logical space never exceeds ~520x292.
-         float vanillaW = (float)client.getWindow().getFramebufferWidth() / gameScaleFactor;
-         float vanillaH = (float)client.getWindow().getFramebufferHeight() / gameScaleFactor;
-         boost = Math.max(1.0F, Math.min(vanillaW / MAX_LOGICAL_W, vanillaH / MAX_LOGICAL_H));
+         // Fixed apparent size: the logical space is always ~520x292, so the Click GUI looks
+         // identical whatever the video-setting GUI Scale is (it only follows the window size).
+         float fitScale = Math.min(
+            (float)client.getWindow().getFramebufferWidth() / LOGICAL_W,
+            (float)client.getWindow().getFramebufferHeight() / LOGICAL_H
+         );
+         boost = Math.max(0.01F, fitScale / gameScaleFactor);
       }
       multiplier = user * boost;
    }
