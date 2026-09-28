@@ -277,6 +277,15 @@ public class DropdownGuiScreen extends Screen {
       visual.modules
          .add(
             new DropdownGuiScreen.Module(
+               "Block Overlay",
+               () -> VoidCyanClient.isBlockOverlayEnabled = !VoidCyanClient.isBlockOverlayEnabled,
+               () -> VoidCyanClient.isBlockOverlayEnabled,
+               () -> c.setScreen(new BlockOverlaySettingsScreen(this))
+            )
+         );
+      visual.modules
+         .add(
+            new DropdownGuiScreen.Module(
                "Big Head",
                () -> VoidCyanClient.isBigHeadEnabled = !VoidCyanClient.isBigHeadEnabled,
                () -> VoidCyanClient.isBigHeadEnabled,

@@ -26,6 +26,8 @@ import net.minecraft.client.input.MouseInput;
 public final class GuiScaleManager {
    private static float gameScaleFactor = 3.0F;
    private static float multiplier = 1.0F;
+   private static final float LOGICAL_W = 520.0F;
+   private static final float LOGICAL_H = 292.0F;
 
    private GuiScaleManager() {
    }
@@ -33,7 +35,18 @@ public final class GuiScaleManager {
    /** Refreshes from the live window; call at the start of each frame or input event. */
    public static void update(MinecraftClient client) {
       gameScaleFactor = client != null && client.getWindow() != null ? client.getWindow().getScaleFactor() : 3.0F;
-      multiplier = VoidCyanClient.clickGuiScale > 0.0F ? VoidCyanClient.clickGuiScale : 1.0F;
+      float user = VoidCyanClient.clickGuiScale > 0.0F ? VoidCyanClient.clickGuiScale : 1.0F;
+      float boost = 1.0F;
+      if (client != null && client.getWindow() != null) {
+         // Fixed apparent size: the logical space is always ~520x292, so the Click GUI looks
+         // identical whatever the video-setting GUI Scale is (it only follows the window size).
+         float fitScale = Math.min(
+            (float)client.getWindow().getFramebufferWidth() / LOGICAL_W,
+            (float)client.getWindow().getFramebufferHeight() / LOGICAL_H
+         );
+         boost = Math.max(0.01F, fitScale / gameScaleFactor);
+      }
+      multiplier = user * boost;
    }
 
    /** The dedicated Click GUI multiplier applied on top of the game scale. */

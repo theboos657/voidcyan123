@@ -1010,6 +1010,16 @@ public class ClickGuiScreen extends Screen {
       this.modules
          .add(
             new ClickGuiScreen.ModuleInfo(
+                  "Block Overlay",
+                  () -> VoidCyanClient.isBlockOverlayEnabled = !VoidCyanClient.isBlockOverlayEnabled,
+                  VoidCyanClient.isBlockOverlayEnabled,
+                  () -> this.client.setScreen(new BlockOverlaySettingsScreen(this))
+               )
+               .desc("Custom outline, fill and glow for the targeted block")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
                   "China Hat",
                   () -> VoidCyanClient.isChinaHatEnabled = !VoidCyanClient.isChinaHatEnabled,
                   VoidCyanClient.isChinaHatEnabled,
@@ -1554,6 +1564,7 @@ public class ClickGuiScreen extends Screen {
          case "TNT Timer":
          case "Biome Display":
          case "Water Fog":
+         case "Block Overlay":
             return "World";
          case "FreeLook":
          case "Zoom":
@@ -5148,7 +5159,7 @@ public class ClickGuiScreen extends Screen {
       this.drawGlowText(context, "Player Model", x, y, primary, alpha);
 
       int cardY = y + 36 - this.scrollOffset;
-      int cardH = 250;
+      int cardH = 280;
       int cardW = width - 20;
       this.drawAnimatedCard(context, x, cardY, cardW, cardH, primary, 0.6F, alpha);
       if (alpha < 0.3F) return;
@@ -5222,10 +5233,20 @@ public class ClickGuiScreen extends Screen {
       this.drawClickGuiButton(context, mouseX, mouseY, rightX, row2Y, btnW, btnH, "Open Models Folder", primary, textAlpha);
       this.drawClickGuiButton(context, mouseX, mouseY, rightX + btnW + btnGap, row2Y, btnW, btnH, "Clear / Remove Model", primary, textAlpha);
 
+      // Scale row: [-] Model Scale: 1.00x [+] [Reset]
+      int row3Y = row2Y + btnH + 6;
+      int smallW = 22;
+      this.drawClickGuiButton(context, mouseX, mouseY, rightX, row3Y, smallW, btnH, "-", primary, textAlpha);
+      String scaleLbl = String.format(java.util.Locale.ROOT, "Model Scale: %.2fx", VoidCyanClient.playerModelScale);
+      GuiStyle.text(context, this.textRenderer, scaleLbl, rightX + smallW + 8, row3Y + 6, textColor);
+      int plusX = rightX + smallW + 8 + this.textRenderer.getWidth(scaleLbl) + 8;
+      this.drawClickGuiButton(context, mouseX, mouseY, plusX, row3Y, smallW, btnH, "+", primary, textAlpha);
+      this.drawClickGuiButton(context, mouseX, mouseY, plusX + smallW + 6, row3Y, 44, btnH, "Reset", primary, textAlpha);
+
       // Footer
-      int footY = row2Y + btnH + 12;
+      int footY = row3Y + btnH + 10;
       GuiStyle.text(context, this.textRenderer, "• Place your Wavefront .obj file as model.obj and skin as texture.png", rightX, footY, subColor);
-      GuiStyle.text(context, this.textRenderer, "• Supports triangles & quads up to 60,000 faces. Renders in 1st & 3rd person.", rightX, footY + 12, subColor);
+      GuiStyle.text(context, this.textRenderer, "• Triangles & quads; dense models are simplified automatically. Auto-fits to player height.", rightX, footY + 12, subColor);
    }
 
    private void drawClickGuiButton(DrawContext context, int mouseX, int mouseY, int bx, int by, int bw, int bh, String label, int primaryColor, float textAlpha) {
@@ -5281,6 +5302,27 @@ public class ClickGuiScreen extends Screen {
             Files.createDirectories(PlayerModelManager.MODEL_DIR);
             Util.getOperatingSystem().open(PlayerModelManager.MODEL_DIR.toFile());
          } catch (Exception ignored) {}
+         return true;
+      }
+
+      // Scale row buttons (must mirror the layout in renderAnimatedPlayerModelTab)
+      int row3Y = row2Y + btnH + 6;
+      int smallW = 22;
+      String scaleLbl = String.format(java.util.Locale.ROOT, "Model Scale: %.2fx", VoidCyanClient.playerModelScale);
+      int plusX = rightX + smallW + 8 + this.textRenderer.getWidth(scaleLbl) + 8;
+      if (GuiStyle.inRect(mouseX, mouseY, rightX, row3Y, smallW, btnH)) {
+         VoidCyanClient.playerModelScale = Math.max(0.05F, Math.round(VoidCyanClient.playerModelScale / 1.1F * 100.0F) / 100.0F);
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+      if (GuiStyle.inRect(mouseX, mouseY, plusX, row3Y, smallW, btnH)) {
+         VoidCyanClient.playerModelScale = Math.min(20.0F, Math.round(VoidCyanClient.playerModelScale * 1.1F * 100.0F) / 100.0F);
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+      if (GuiStyle.inRect(mouseX, mouseY, plusX + smallW + 6, row3Y, 44, btnH)) {
+         VoidCyanClient.playerModelScale = 1.0F;
+         VoidCyanClient.saveConfig();
          return true;
       }
 

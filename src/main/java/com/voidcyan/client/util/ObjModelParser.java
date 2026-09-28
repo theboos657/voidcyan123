@@ -16,9 +16,8 @@ import java.util.List;
  * faces (triangles or quads). Faces are split into triangles, so everything is
  * consumed downstream as triangle lists.
  *
- * Coordinates are converted from OBJ convention (+Y up, +Z toward viewer) into
- * Minecraft model convention (-Y up, +Z behind the player) during parse:
- *   mc.x = -obj.x,  mc.y = -obj.y,  mc.z = -obj.z
+ * Coordinates are converted during parse into the world-space frame the render mixin
+ * uses (entity origin at the feet, +Y up): mc.x = -obj.x, mc.y = obj.y, mc.z = -obj.z.
  * V is flipped too (mc texture space has V growing downward).
  */
 public final class ObjModelParser {
@@ -26,6 +25,17 @@ public final class ObjModelParser {
    public static final class Tri {
       public final float[] xyz = new float[9];   // 3 verts, x/y/z in Minecraft model units
       public final float[] uv = new float[6];    // 3 verts, u/v in 0..1
+      public final float[] normal = {0.0f, 1.0f, 0.0f}; // face normal, precomputed once
+
+      void computeNormal() {
+         float ax = xyz[3] - xyz[0], ay = xyz[4] - xyz[1], az = xyz[5] - xyz[2];
+         float bx = xyz[6] - xyz[0], by = xyz[7] - xyz[1], bz = xyz[8] - xyz[2];
+         float nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+         float len = (float)Math.sqrt(nx * nx + ny * ny + nz * nz);
+         if (len >= 1e-6f) {
+            normal[0] = nx / len; normal[1] = ny / len; normal[2] = nz / len;
+         }
+      }
    }
 
    public static final class Result {
@@ -44,7 +54,14 @@ public final class ObjModelParser {
    }
 
    /** Hard sanity limits so a pathological file cannot stall or OOM the client. */
-   public static final int MAX_FACES = 60000;
+   public static final int MAX_FACES = 400000;
+
+   /**
+    * Triangles actually rendered per frame. Higher-poly models are decimated on import
+    * (vertex clustering) — submitting hundreds of thousands of vertices every frame
+    * overflows the entity vertex buffers and crashes the client.
+    */
+   public static final int MAX_RENDER_TRIS = 12000;
 
    public static Result parse(Path file) throws IOException {
       List<float[]> positions = new ArrayList<>();
@@ -73,7 +90,7 @@ public final class ObjModelParser {
                   float ox = Float.parseFloat(parts[1]);
                   float oy = Float.parseFloat(parts[2]);
                   float oz = Float.parseFloat(parts[3]);
-                  float x = -ox, y = -oy, z = -oz; // OBJ -> Minecraft model convention
+                  float x = -ox, y = oy, z = -oz; // OBJ -> world-space (Y stays up; X/Z rotated 180 deg so the front faces the player)
                   positions.add(new float[]{x, y, z});
                   if (x < minX) minX = x;
                   if (y < minY) minY = y;
@@ -126,6 +143,12 @@ public final class ObjModelParser {
                   }
                }
 
+               for (int c = 0; c < corners; c++) {
+                  if (vi[c] < 0 || vi[c] >= positions.size()) {
+                     throw new IOException("Vertex index out of range at line " + lineNo);
+                  }
+               }
+
                // Quad -> two triangles (0,1,2) + (0,2,3); triangle passes through as-is.
                int[][] triIdx = corners == 4
                   ? new int[][]{{0, 1, 2}, {0, 2, 3}}
@@ -153,7 +176,53 @@ public final class ObjModelParser {
          throw new IOException("No faces found in .obj file");
       }
 
+      if (tris.size() > MAX_RENDER_TRIS) {
+         tris = decimate(tris, minX, minY, minZ, maxX, maxY, maxZ);
+      }
+      for (Tri t : tris) t.computeNormal();
+
       return new Result(tris, minX, minY, minZ, maxX, maxY, maxZ);
+   }
+
+   /** Vertex-clustering decimation: shrinks the grid until the triangle count fits. */
+   private static List<Tri> decimate(List<Tri> src, float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
+      float extent = Math.max(Math.max(maxX - minX, maxY - minY), Math.max(maxZ - minZ, 1e-4f));
+      List<Tri> out = src;
+      for (int grid = 192; grid >= 4 && out.size() > MAX_RENDER_TRIS; grid = (int)(grid * 0.8f)) {
+         float cell = extent / grid;
+         java.util.HashMap<Long, float[]> cells = new java.util.HashMap<>();
+         long[] keys = new long[src.size() * 3];
+         int n = 0;
+         for (Tri t : src) {
+            for (int k = 0; k < 3; k++) {
+               long cx = (long)((t.xyz[k * 3] - minX) / cell);
+               long cy = (long)((t.xyz[k * 3 + 1] - minY) / cell);
+               long cz = (long)((t.xyz[k * 3 + 2] - minZ) / cell);
+               long key = (cx << 40) ^ (cy << 20) ^ cz;
+               keys[n++] = key;
+               float[] acc = cells.computeIfAbsent(key, x -> new float[4]);
+               acc[0] += t.xyz[k * 3]; acc[1] += t.xyz[k * 3 + 1]; acc[2] += t.xyz[k * 3 + 2]; acc[3] += 1.0f;
+            }
+         }
+         List<Tri> next = new ArrayList<>();
+         int i = 0;
+         for (Tri t : src) {
+            long a = keys[i++], b = keys[i++], c = keys[i++];
+            if (a == b || b == c || a == c) continue; // collapsed
+            Tri nt = new Tri();
+            long[] ks = {a, b, c};
+            for (int k = 0; k < 3; k++) {
+               float[] acc = cells.get(ks[k]);
+               nt.xyz[k * 3] = acc[0] / acc[3];
+               nt.xyz[k * 3 + 1] = acc[1] / acc[3];
+               nt.xyz[k * 3 + 2] = acc[2] / acc[3];
+            }
+            System.arraycopy(t.uv, 0, nt.uv, 0, 6);
+            next.add(nt);
+         }
+         out = next;
+      }
+      return out;
    }
 
    private ObjModelParser() {}
