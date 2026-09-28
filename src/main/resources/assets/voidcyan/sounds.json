@@ -1,0 +1,10 @@
+{
+  "armor_warning": {
+    "sounds": [
+      {
+        "name": "voidcyan:armor_warning",
+        "stream": false
+      }
+    ]
+  }
+}

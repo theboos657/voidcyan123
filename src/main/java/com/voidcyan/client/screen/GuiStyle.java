@@ -1,0 +1,483 @@
+package com.voidcyan.client.screen;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+
+/**
+ * Shared visual language for the redesigned VoidCyan click GUI:
+ * rounded floating window, pill buttons/chips/badges, pill sliders,
+ * thin rounded scrollbar and soft glow accents in the theme color.
+ */
+public final class GuiStyle {
+   private GuiStyle() {}
+
+   // ---- Core geometry ------------------------------------------------------
+
+   public static final int WINDOW_MARGIN = 12;
+   public static final int SIDEBAR_W = 150;
+   public static final int WINDOW_RADIUS = 0;
+
+   /**
+    * Sharp-cornered rectangle. The radius parameter is intentionally ignored:
+    * VoidCyan uses straight edges everywhere (no rounded corners on any shape).
+    */
+   public static void roundedRect(DrawContext context, int x, int y, int width, int height, int radius, int argb) {
+      if (width <= 0 || height <= 0 || ((argb >>> 24) & 0xFF) <= 0) return;
+      context.fill(x, y, x + width, y + height, argb);
+   }
+
+   /**
+    * Sharp 1px outline (4 straight edges). The radius parameter is intentionally
+    * ignored — no shape in the GUI has rounded corners anymore.
+    */
+   public static void roundedOutline(DrawContext context, int x, int y, int width, int height, int radius, int argb) {
+      if (width <= 0 || height <= 0 || ((argb >>> 24) & 0xFF) <= 0) return;
+      int color = argb;
+      context.fill(x, y, x + width, y + 1, color);
+      context.fill(x, y + height - 1, x + width, y + height, color);
+      context.fill(x, y + 1, x + 1, y + height - 1, color);
+      context.fill(x + width - 1, y + 1, x + width, y + height - 1, color);
+   }
+
+   /** Solid rounded rect with a 1px border of a different color. */
+   public static void roundedBordered(
+      DrawContext context, int x, int y, int width, int height, int radius, int fillArgb, int borderArgb
+   ) {
+      roundedRect(context, x, y, width, height, radius, borderArgb);
+      roundedRect(context, x + 1, y + 1, width - 2, height - 2, Math.max(0, radius - 1), fillArgb);
+   }
+
+   /** Softer 2px border variant. */
+   public static void roundedBordered2(
+      DrawContext context, int x, int y, int width, int height, int radius, int fillArgb, int borderArgb
+   ) {
+      roundedRect(context, x, y, width, height, radius, borderArgb);
+      roundedRect(context, x + 2, y + 2, width - 4, height - 4, Math.max(0, radius - 2), fillArgb);
+   }
+
+   // ---- Window --------------------------------------------------------------
+
+   /**
+    * Draws the full GUI window: soft outer glow, dark rounded body.
+    * Returns nothing; caller draws content inside.
+    */
+   public static void drawWindow(DrawContext context, int x, int y, int width, int height, int primaryRgb, float openProgress) {
+      int a = (int)(openProgress * 255.0F);
+      if (a <= 4) return;
+
+      // Outer glow: layered rounded rects expanding outwards with fading alpha.
+      int[] glowAlphas = new int[]{(int)(a * 0.045F), (int)(a * 0.075F), (int)(a * 0.11F)};
+      for (int layer = glowAlphas.length; layer >= 1; layer--) {
+         int pad = layer * 4;
+         int ga = glowAlphas[layer - 1];
+         if (ga > 3) {
+            roundedRect(context, x - pad, y - pad, width + pad * 2, height + pad * 2, WINDOW_RADIUS + pad, ga << 24 | (primaryRgb & 0xFFFFFF));
+         }
+      }
+
+      // Body: dark base + faint top sheen.
+      int body = (int)(a * 0.93F) << 24 | 0x0C0A12;
+      roundedRect(context, x, y, width, height, WINDOW_RADIUS, body);
+
+      // Hairline window outline, tinted by theme.
+      int outline = (int)(a * 0.22F) << 24 | (primaryRgb & 0xFFFFFF);
+      roundedOutline(context, x, y, width, height, WINDOW_RADIUS, outline);
+      roundedOutline(context, x + 1, y + 1, width - 2, height - 2, WINDOW_RADIUS - 1, ((int)(a * 0.10F)) << 24);
+
+      // Inner content well behind the content area (slightly lighter than sidebar).
+   }
+
+   public static void drawContentWell(DrawContext context, int x, int y, int width, int height, int primaryRgb, float openProgress) {
+      int a = (int)(openProgress * 255.0F);
+      if (a <= 4) return;
+      int well = (int)(a * 0.55F) << 24 | 0x120E1A;
+      roundedRect(context, x, y, width, height, 10, well);
+      int edge = (int)(a * 0.10F) << 24 | (primaryRgb & 0xFFFFFF);
+      roundedOutline(context, x, y, width, height, 10, edge);
+   }
+
+   // ---- Text helpers ---------------------------------------------------------
+
+   public static void text(DrawContext context, TextRenderer tr, String s, int x, int y, int argb) {
+      context.drawTextWithShadow(tr, Text.literal(s), x, y, argb);
+   }
+
+   public static void textCentered(DrawContext context, TextRenderer tr, String s, int cx, int y, int argb) {
+      context.drawTextWithShadow(tr, Text.literal(s), cx - tr.getWidth(s) / 2, y, argb);
+   }
+
+   // ---- Pills / chips ----------------------------------------------------------
+
+   /** Pill-shaped toggle chip; returns true when hovered. */
+   public static boolean chip(
+      DrawContext context,
+      TextRenderer tr,
+      String label,
+      int x,
+      int y,
+      boolean active,
+      float hover,
+      int primaryRgb,
+      float alpha
+   ) {
+      int w = tr.getWidth(label) + 22;
+      int h = 18;
+      int a = (int)(alpha * 255.0F);
+      if (a <= 4) return false;
+
+      int bg;
+      int border;
+      int fg;
+      if (active) {
+         // Active chips fill completely with the theme color; text stays dark but soft, never harsh black.
+         bg = a * 95 / 100 << 24 | (primaryRgb & 0xFFFFFF);
+         border = a << 24 | (primaryRgb & 0xFFFFFF);
+         fg = a << 24 | 0x3A3544;
+      } else {
+         bg = a * (45 + (int)(hover * 25)) / 100 << 24 | 0x1C1724;
+         border = a * (18 + (int)(hover * 30)) / 100 << 24 | 0xFFFFFF;
+         fg = a * (60 + (int)(hover * 35)) / 100 << 24 | 0xFFFFFF;
+      }
+
+      roundedBordered(context, x, y, w, h, 4, bg, border);
+      text(context, tr, label, x + 11, y + 5, fg);
+      return true;
+   }
+
+   public static int chipWidth(TextRenderer tr, String label) {
+      return tr.getWidth(label) + 22;
+   }
+
+   /** Small rounded badge (e.g. ON/OFF). The fixed width keeps both states readable. */
+   public static void badge(DrawContext context, TextRenderer tr, String label, int x, int y, int colorRgb, float alpha) {
+      int w = 34;
+      int h = 16;
+      int a = (int)(alpha * 255.0F);
+      if (a <= 4) return;
+      boolean on = label.equals("ON");
+      int bg = on ? a * 95 / 100 << 24 | (colorRgb & 0xFFFFFF) : a * 14 / 100 << 24 | 0xFFFFFF;
+      int border = on ? a << 24 | (colorRgb & 0xFFFFFF) : a * 30 / 100 << 24 | 0xFFFFFF;
+      int fg = on ? a << 24 | 0x0E0B14 : a * 75 / 100 << 24 | 0xFFFFFF;
+      roundedBordered(context, x, y, w, h, 4, bg, border);
+      textCentered(context, tr, label, x + w / 2, y + 4, fg);
+   }
+
+   // ---- Controls ---------------------------------------------------------------
+
+   /** Squared toggle switch: ON = full theme track, light knob on the right; OFF = dark track, knob left. */
+   public static void toggleSwitch(DrawContext context, int x, int y, int width, int height, boolean enabled, float anim, int primaryRgb, float alpha) {
+      int a = (int)(alpha * 255.0F);
+      if (a <= 4) return;
+      int radius = 5;
+
+      int track = enabled ? a * 95 / 100 << 24 | (primaryRgb & 0xFFFFFF) : a * 70 / 100 << 24 | 0x2A2533;
+      roundedRect(context, x, y, width, height, radius, track);
+
+      int knobD = height - 4;
+      int knobMinX = x + 2;
+      int knobMaxX = x + width - knobD - 2;
+      float t = Math.max(0.0F, Math.min(1.0F, anim));
+      int knobX = (int)(knobMinX + (knobMaxX - knobMinX) * t);
+      // Light knob is clearly visible on both the dark OFF track and the theme-colored ON track.
+      roundedRect(context, knobX, y + 2, knobD, knobD, 3, a << 24 | 0xF5F2F8);
+      roundedOutline(context, knobX, y + 2, knobD, knobD, 3, a * 30 / 100 << 24);
+   }
+
+   /**
+    * Pill slider with gradient-free fill and glowing handle.
+    * trackWidth is the interactive width; returns the computed handle x for reuse.
+    */
+   public static int slider(
+      DrawContext context,
+      int x,
+      int y,
+      int trackWidth,
+      float ratio,
+      int primaryRgb,
+      float alpha,
+      boolean hover
+   ) {
+      ratio = Math.max(0.0F, Math.min(1.0F, ratio));
+      int a = (int)(alpha * 255.0F);
+      if (a <= 4) return x;
+      int trackH = 6;
+      int trackY = y;
+      roundedRect(context, x, trackY, trackWidth, trackH, trackH / 2, (int)(a * 0.22F) << 24 | 0xFFFFFF);
+
+      int fillW = (int)(trackWidth * ratio);
+      if (fillW > 0) {
+         int fillCol = (int)(a * 0.95F) << 24 | (primaryRgb & 0xFFFFFF);
+         roundedRect(context, x, trackY, Math.max(fillW, trackH), trackH, trackH / 2, fillCol);
+      }
+
+      int handleD = 10 + (hover ? 3 : 0);
+      int handleX = x + fillW - handleD / 2;
+      int glowA = (int)(a * (hover ? 0.35F : 0.18F));
+      if (glowA > 3) {
+         roundedRect(context, handleX - 3, trackY + trackH / 2 - handleD / 2 - 3, handleD + 6, handleD + 6, (handleD + 6) / 2, glowA << 24 | (primaryRgb & 0xFFFFFF));
+      }
+
+      roundedRect(context, handleX, trackY + trackH / 2 - handleD / 2, handleD, handleD, 3, (int)(a * 255.0F) << 24 | 0xF4F1F8);
+      return handleX;
+   }
+
+   /** Thin rounded scrollbar; thumb position derived from scroll offsets. */
+   public static void scrollbar(DrawContext context, int x, int y, int trackH, int scroll, int maxScroll, int primaryRgb, float alpha) {
+      int a = (int)(alpha * 255.0F);
+      if (a <= 4 || maxScroll <= 0 || trackH < 24) return;
+      roundedRect(context, x, y, 4, trackH, 2, (int)(a * 0.10F) << 24 | 0xFFFFFF);
+
+      int thumbH = Math.max(24, trackH * trackH / (trackH + maxScroll));
+      int thumbY = y + (int)((float)scroll / maxScroll * (trackH - thumbH));
+      roundedRect(context, x, thumbY, 4, thumbH, 2, (int)(a * 0.75F) << 24 | (primaryRgb & 0xFFFFFF));
+   }
+
+   /** Maps a mouse x on a slider track back to 0..1. */
+   public static float sliderRatio(double mouseX, int trackX, int trackWidth) {
+      return (float)Math.max(0.0, Math.min(1.0, (mouseX - trackX) / (double)trackWidth));
+   }
+
+   public static boolean inRect(double mx, double my, int x, int y, int w, int h) {
+      return mx >= x && mx <= x + w && my >= y && my <= y + h;
+   }
+
+   /** Linear blend of two RGB colors. */
+   public static int blend(int rgbA, int rgbB, float t) {
+      t = Math.max(0.0F, Math.min(1.0F, t));
+      int ar = (rgbA >> 16) & 0xFF;
+      int ag = (rgbA >> 8) & 0xFF;
+      int ab = rgbA & 0xFF;
+      int br = (rgbB >> 16) & 0xFF;
+      int bg = (rgbB >> 8) & 0xFF;
+      int bb = rgbB & 0xFF;
+      return (int)(ar + (br - ar) * t) << 16 | (int)(ag + (bg - ag) * t) << 8 | (int)(ab + (bb - ab) * t);
+   }
+
+   /** Player face texture id for the given profile, falling back to a local texture. */
+   public static Identifier playerFace(MinecraftClient client) {
+      Identifier blank = Identifier.of("voidcyan", "textures/gui/white.png");
+      try {
+         if (client.getSkinProvider() != null && client.player != null && client.player.getSkin() != null) {
+            Identifier skinTex = client.player.getSkin().body().id();
+            if (skinTex != null) {
+               return skinTex;
+            }
+         }
+      } catch (Exception ignored) {
+      }
+      return blank;
+   }
+
+   // ---- Logo -------------------------------------------------------------------
+
+   public static final Identifier MOD_ICON = Identifier.of("voidcyan_client", "icon.png");
+
+   /** Draws the bundled mod logo with a vector fallback so it remains visible at every GUI scale. */
+   public static void drawLogo(DrawContext context, int x, int y, int size, int primaryRgb, float alpha) {
+      int a = (int)(alpha * 255.0F);
+      if (a <= 4) return;
+      int theme = a << 24 | (primaryRgb & 0xFFFFFF);
+      int radius = Math.max(4, size / 4);
+      roundedRect(context, x, y, size, size, radius, a * 60 / 100 << 24 | 0x0C0A14);
+      roundedOutline(context, x, y, size, size, radius, a * 70 / 100 << 24 | (primaryRgb & 0xFFFFFF));
+      // Crisp theme-colored "V" mark: two diagonal strokes meeting at the bottom center.
+      int stroke = Math.max(2, size / 5);
+      int top = y + size / 4;
+      int bottom = y + size * 3 / 4;
+      int leftX = x + size / 4;
+      int rightX = x + size * 3 / 4 - stroke;
+      for (int i = 0; i <= bottom - top; i++) {
+         int yy = top + i;
+         int lx = leftX + i / 2;
+         int rx = rightX - i / 2;
+         context.fill(lx, yy, lx + stroke, yy + 1, theme);
+         context.fill(rx, yy, rx + stroke, yy + 1, theme);
+      }
+   }
+
+   /** Draws crisp, small vector icons for the sidebar; avoids scaling the 64px source sprites. */
+   public static void sidebarIcon(DrawContext context, int index, int x, int y, int size, int argb) {
+      int c = argb;
+      int s6 = Math.max(2, size / 6);
+      switch (index) {
+         case 10: { // player model: humanoid silhouette
+            int mid = x + size / 2;
+            // head
+            roundedRect(context, mid - 2, y + 1, 4, 3, 1, c);
+            // torso
+            context.fill(mid - 2, y + 5, mid + 2, y + 9, c);
+            // arms
+            context.fill(mid - 4, y + 5, mid - 2, y + 9, c);
+            context.fill(mid + 2, y + 5, mid + 4, y + 9, c);
+            // legs
+            context.fill(mid - 2, y + 9, mid - 1, y + size, c);
+            context.fill(mid + 1, y + 9, mid + 2, y + size, c);
+            break;
+         }
+         case 0: { // modules: 2x2 grid of rounded squares
+            int cell = size / 2 - 1;
+            roundedRect(context, x + 1, y + 1, cell, cell, 2, c);
+            roundedRect(context, x + size - 1 - cell, y + 1, cell, cell, 2, c);
+            roundedRect(context, x + 1, y + size - 1 - cell, cell, cell, 2, c);
+            roundedRect(context, x + size - 1 - cell, y + size - 1 - cell, cell, cell, 2, c);
+            break;
+         }
+         case 1: { // screenshots: camera body + lens ring
+            roundedRect(context, x + 1, y + 3, size - 2, size - 5, 2, c);
+            int lens = Math.max(3, size / 3);
+            int lx = x + (size - lens) / 2;
+            int ly = y + (size - lens) / 2 + 1;
+            // Lens drawn as a contrasting ring: invert brightness of the icon color.
+            int ringCol = (((c >> 16 & 0xFF) + 128) & 0xFF) << 16 | (((c >> 8 & 0xFF) + 128) & 0xFF) << 8 | ((c & 0xFF) + 128 & 0xFF) | c & 0xFF000000;
+            roundedOutline(context, lx, ly, lens, lens, 1, ringCol);
+            // small viewfinder bump
+            context.fill(x + size / 2 - 2, y + 1, x + size / 2 + 2, y + 3, c);
+            break;
+         }
+         case 2: { // backgrounds: picture frame with mountain + sun
+            roundedOutline(context, x + 1, y + 2, size - 2, size - 4, 2, c);
+            // sun
+            context.fill(x + size - 5, y + 4, x + size - 3, y + 6, c);
+            // mountain slope
+            for (int r = 0; r < 3; r++) {
+               context.fill(x + 3 + r, y + size - 5 - r, x + 5 + r * 2, y + size - 4 - r, c);
+            }
+            context.fill(x + 3, y + size - 5, x + size - 4, y + size - 4, c);
+            break;
+         }
+         case 3: { // settings: gear = ring + 4 teeth + center hub
+            roundedOutline(context, x + 2, y + 2, size - 4, size - 4, 3, c);
+            context.fill(x + size / 2 - 1, y, x + size / 2 + 1, y + 3, c);           // top tooth
+            context.fill(x + size / 2 - 1, y + size - 3, x + size / 2 + 1, y + size, c); // bottom
+            context.fill(x, y + size / 2 - 1, x + 3, y + size / 2 + 1, c);           // left
+            context.fill(x + size - 3, y + size / 2 - 1, x + size, y + size / 2 + 1, c); // right
+            context.fill(x + size / 2 - 1, y + size / 2 - 1, x + size / 2 + 1, y + size / 2 + 1, c); // hub
+            break;
+         }
+         case 4: // friends
+            roundedRect(context, x + size / 2 - 2, y + 2, 4, 4, 2, c);
+            roundedRect(context, x + 2, y + 7, size - 4, 4, 2, c);
+            break;
+         case 5: // config sliders
+            context.fill(x + 2, y + 2, x + size - 2, y + 3, c);
+            context.fill(x + 2, y + size / 2, x + size - 2, y + size / 2 + 1, c);
+            context.fill(x + 2, y + size - 3, x + size - 2, y + size - 2, c);
+            context.fill(x + size / 3, y + 1, x + size / 3 + 2, y + 4, c);
+            context.fill(x + size * 2 / 3, y + size / 2 - 1, x + size * 2 / 3 + 2, y + size / 2 + 2, c);
+            break;
+         case 6: // statistics
+            context.fill(x + 2, y + size - 3, x + 4, y + size - 2, c);
+            context.fill(x + size / 2 - 1, y + size / 2, x + size / 2 + 1, y + size - 2, c);
+            context.fill(x + size - 4, y + 2, x + size - 2, y + size - 2, c);
+            break;
+         case 7: // notes
+            roundedOutline(context, x + 2, y + 1, size - 4, size - 2, 1, c);
+            context.fill(x + 4, y + 5, x + size - 4, y + 6, c);
+            context.fill(x + 4, y + 8, x + size - 4, y + 9, c);
+            break;
+         case 8: { // calculator: body + display + 2x2 buttons
+            roundedOutline(context, x + 2, y + 1, size - 4, size - 2, 2, c);
+            context.fill(x + 4, y + 3, x + size - 4, y + 5, c); // display
+            int bs = 2;
+            int gap = 2;
+            int bx0 = x + 4;
+            int by0 = y + 7;
+            for (int r = 0; r < 2; r++) {
+               for (int q = 0; q < 2; q++) {
+                  context.fill(bx0 + q * (bs + gap), by0 + r * (bs + gap), bx0 + q * (bs + gap) + bs, by0 + r * (bs + gap) + bs, c);
+               }
+            }
+            break;
+         }
+         default: { // textures: frame + checkerboard quadrants
+            roundedOutline(context, x + 2, y + 2, size - 4, size - 4, 2, c);
+            int half = (size - 4) / 2;
+            int ix = x + 3;
+            int iy = y + 3;
+            context.fill(ix, iy, ix + half, iy + half, c);
+            context.fill(ix + half + 1, iy + half + 1, ix + half * 2 + 1, iy + half * 2 + 1, c);
+            break;
+         }
+      }
+   }
+
+   /** Draws a simple white glyph from a 5x5 char map, used for sidebar icon buttons. */
+   public static void glyph(DrawContext context, int x, int y, int scale, char[][] map, int argb) {
+      for (int row = 0; row < map.length; row++) {
+         for (int col = 0; col < map[row].length; col++) {
+            if (map[row][col] == '#') {
+               context.fill(x + col * scale, y + row * scale, x + (col + 1) * scale, y + (row + 1) * scale, argb);
+            }
+         }
+      }
+   }
+
+   // Glyph maps (5 wide)
+   public static final char[][] GLYPH_GRID = {
+      {'#', '#', '#', '#', '#'},
+      {'#', '.', '.', '.', '#'},
+      {'#', '#', '#', '#', '#'},
+      {'#', '.', '.', '.', '#'},
+      {'#', '#', '#', '#', '#'}
+   };
+   public static final char[][] GLYPH_BOLT = {
+      {'.', '#', '#', '#', '.'},
+      {'.', '#', '#', '.', '.'},
+      {'#', '#', '#', '#', '.'},
+      {'.', '.', '#', '#', '.'},
+      {'.', '#', '#', '.', '.'}
+   };
+   public static final char[][] GLYPH_GEAR = {
+      {'.', '#', '.', '#', '.'},
+      {'#', '#', '#', '#', '#'},
+      {'#', '.', '#', '.', '#'},
+      {'#', '#', '#', '#', '#'},
+      {'.', '#', '.', '#', '.'}
+   };
+   public static final char[][] GLYPH_PALETTE = {
+      {'.', '.', '#', '#', '.'},
+      {'.', '#', '#', '#', '#'},
+      {'#', '#', '.', '#', '#'},
+      {'#', '#', '#', '#', '#'},
+      {'.', '#', '#', '.', '.'}
+   };
+   public static final char[][] GLYPH_CLOSE = {
+      {'#', '.', '.', '.', '#'},
+      {'.', '#', '.', '#', '.'},
+      {'.', '.', '#', '.', '.'},
+      {'.', '#', '.', '#', '.'},
+      {'#', '.', '.', '.', '#'}
+   };
+   public static final char[][] GLYPH_CHEVRON_DOWN = {
+      {'#', '#', '#', '#', '#'},
+      {'.', '#', '#', '#', '.'},
+      {'.', '.', '#', '.', '.'},
+      {'.', '#', '#', '#', '.'},
+      {'#', '#', '#', '#', '#'}
+   };
+   public static final char[][] GLYPH_SEARCH = {
+      {'.', '#', '#', '#', '.'},
+      {'#', '.', '.', '.', '#'},
+      {'#', '.', '.', '.', '#'},
+      {'#', '.', '.', '.', '#'},
+      {'.', '#', '.', '.', '.'}
+   };
+   public static final char[][] GLYPH_SORT = {
+      {'#', '.', '#', '.', '#'},
+      {'#', '.', '#', '.', '#'},
+      {'.', '#', '.', '#', '.'},
+      {'.', '#', '.', '#', '.'},
+      {'.', '.', '#', '.', '.'}
+   };
+   public static final char[][] GLYPH_FILTER = {
+      {'#', '#', '#', '#', '#'},
+      {'.', '.', '#', '.', '.'},
+      {'.', '.', '#', '.', '.'},
+      {'.', '.', '.', '.', '.'},
+      {'.', '.', '.', '.', '.'}
+   };
+}
