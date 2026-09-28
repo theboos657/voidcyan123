@@ -4,6 +4,7 @@ import com.voidcyan.client.mixin.accessor.OverlayTextureAccessor;
 import com.voidcyan.client.module.ArrayListManager;
 import com.voidcyan.client.module.AttackHudRenderer;
 import com.voidcyan.client.module.BlockIndicatorManager;
+import com.voidcyan.client.module.BlockOverlayRenderer;
 import com.voidcyan.client.module.ChinaHatRenderer;
 import com.voidcyan.client.module.CustomF3Manager;
 import com.voidcyan.client.module.DeathInfoManager;
@@ -716,6 +717,18 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean bigHeadFriends = true;
    public static boolean bigHeadOthers = false;
    public static float bigHeadScale = 1.5F;
+   public static boolean isBlockOverlayEnabled = false;
+   /** 0 = Full Block, 1 = Air Exposed (see BlockOverlayRenderer). */
+   public static int blockOverlayMode = 0;
+   public static boolean blockOverlayOutline = true;
+   public static boolean blockOverlayFill = false;
+   public static boolean blockOverlayGlow = false;
+   public static int blockOverlayRed = 0;
+   public static int blockOverlayGreen = 255;
+   public static int blockOverlayBlue = 255;
+   public static float blockOverlayThickness = 2.0F;
+   public static int blockOverlayFillOpacity = 25;
+   public static float blockOverlayGlowStrength = 1.0F;
    public static boolean isChinaHatEnabled = false;
    public static int chinaHatRed = 0;
    public static int chinaHatGreen = 0;
@@ -950,6 +963,9 @@ public class VoidCyanClient implements ClientModInitializer {
             break;
          case "China Hat":
             isChinaHatEnabled = !isChinaHatEnabled;
+            break;
+         case "Block Overlay":
+            isBlockOverlayEnabled = !isBlockOverlayEnabled;
             break;
          case "Mouse Strokes":
             isMouseStrokesEnabled = !isMouseStrokesEnabled;
@@ -2076,6 +2092,17 @@ public class VoidCyanClient implements ClientModInitializer {
             bigHeadFriends = Boolean.parseBoolean(props.getProperty("bigHeadFriends", "true"));
             bigHeadOthers = Boolean.parseBoolean(props.getProperty("bigHeadOthers", "false"));
             bigHeadScale = Float.parseFloat(props.getProperty("bigHeadScale", "1.5"));
+            isBlockOverlayEnabled = Boolean.parseBoolean(props.getProperty("isBlockOverlayEnabled", "false"));
+            blockOverlayMode = Integer.parseInt(props.getProperty("blockOverlayMode", "0"));
+            blockOverlayOutline = Boolean.parseBoolean(props.getProperty("blockOverlayOutline", "true"));
+            blockOverlayFill = Boolean.parseBoolean(props.getProperty("blockOverlayFill", "false"));
+            blockOverlayGlow = Boolean.parseBoolean(props.getProperty("blockOverlayGlow", "false"));
+            blockOverlayRed = Integer.parseInt(props.getProperty("blockOverlayRed", "0"));
+            blockOverlayGreen = Integer.parseInt(props.getProperty("blockOverlayGreen", "255"));
+            blockOverlayBlue = Integer.parseInt(props.getProperty("blockOverlayBlue", "255"));
+            blockOverlayThickness = Float.parseFloat(props.getProperty("blockOverlayThickness", "2.0"));
+            blockOverlayFillOpacity = Integer.parseInt(props.getProperty("blockOverlayFillOpacity", "25"));
+            blockOverlayGlowStrength = Float.parseFloat(props.getProperty("blockOverlayGlowStrength", "1.0"));
             isChinaHatEnabled = Boolean.parseBoolean(props.getProperty("isChinaHatEnabled", "false"));
             chinaHatRed = Integer.parseInt(props.getProperty("chinaHatRed", "0"));
             chinaHatGreen = Integer.parseInt(props.getProperty("chinaHatGreen", "0"));
@@ -2657,6 +2684,17 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("bigHeadFriends", String.valueOf(bigHeadFriends));
       props.setProperty("bigHeadOthers", String.valueOf(bigHeadOthers));
       props.setProperty("bigHeadScale", String.valueOf(bigHeadScale));
+      props.setProperty("isBlockOverlayEnabled", String.valueOf(isBlockOverlayEnabled));
+      props.setProperty("blockOverlayMode", String.valueOf(blockOverlayMode));
+      props.setProperty("blockOverlayOutline", String.valueOf(blockOverlayOutline));
+      props.setProperty("blockOverlayFill", String.valueOf(blockOverlayFill));
+      props.setProperty("blockOverlayGlow", String.valueOf(blockOverlayGlow));
+      props.setProperty("blockOverlayRed", String.valueOf(blockOverlayRed));
+      props.setProperty("blockOverlayGreen", String.valueOf(blockOverlayGreen));
+      props.setProperty("blockOverlayBlue", String.valueOf(blockOverlayBlue));
+      props.setProperty("blockOverlayThickness", String.valueOf(blockOverlayThickness));
+      props.setProperty("blockOverlayFillOpacity", String.valueOf(blockOverlayFillOpacity));
+      props.setProperty("blockOverlayGlowStrength", String.valueOf(blockOverlayGlowStrength));
       props.setProperty("isChinaHatEnabled", String.valueOf(isChinaHatEnabled));
       props.setProperty("chinaHatRed", String.valueOf(chinaHatRed));
       props.setProperty("chinaHatGreen", String.valueOf(chinaHatGreen));
@@ -2809,7 +2847,13 @@ public class VoidCyanClient implements ClientModInitializer {
          StreakManager.onSessionEnd();
          saveConfig();
       });
+      // Hide vanilla's black block outline while Block Overlay is drawing its own.
+      WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, hitResult) -> !BlockOverlayRenderer.shouldReplaceVanilla(hitResult));
       WorldRenderEvents.AFTER_ENTITIES.register((AfterEntities)context -> {
+         if (isBlockOverlayEnabled) {
+            BlockOverlayRenderer.render(context);
+         }
+
          if (isDamageHeartsEnabled) {
             HeartRenderer.renderAll3D(context);
          }

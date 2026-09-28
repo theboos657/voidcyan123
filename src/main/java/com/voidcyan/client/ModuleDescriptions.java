@@ -75,6 +75,7 @@ public final class ModuleDescriptions {
          MAP.put("Big Head", "Enlarges player head models");
          MAP.put("Item Animations", "Old-style item swing animations");
          MAP.put("View Model", "Adjusts hand and item view model");
+         MAP.put("Block Overlay", "Custom outline, fill and glow for the targeted block");
          MAP.put("China Hat", "Renders a conical hat on players");
          MAP.put("Inv Highlight", "Highlights important items in inventory");
          MAP.put("Mouse Strokes", "Visualises left and right mouse clicks");

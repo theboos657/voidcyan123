@@ -1010,6 +1010,16 @@ public class ClickGuiScreen extends Screen {
       this.modules
          .add(
             new ClickGuiScreen.ModuleInfo(
+                  "Block Overlay",
+                  () -> VoidCyanClient.isBlockOverlayEnabled = !VoidCyanClient.isBlockOverlayEnabled,
+                  VoidCyanClient.isBlockOverlayEnabled,
+                  () -> this.client.setScreen(new BlockOverlaySettingsScreen(this))
+               )
+               .desc("Custom outline, fill and glow for the targeted block")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
                   "China Hat",
                   () -> VoidCyanClient.isChinaHatEnabled = !VoidCyanClient.isChinaHatEnabled,
                   VoidCyanClient.isChinaHatEnabled,
@@ -1554,6 +1564,7 @@ public class ClickGuiScreen extends Screen {
          case "TNT Timer":
          case "Biome Display":
          case "Water Fog":
+         case "Block Overlay":
             return "World";
          case "FreeLook":
          case "Zoom":
