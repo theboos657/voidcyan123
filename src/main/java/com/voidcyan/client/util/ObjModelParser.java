@@ -16,9 +16,8 @@ import java.util.List;
  * faces (triangles or quads). Faces are split into triangles, so everything is
  * consumed downstream as triangle lists.
  *
- * Coordinates are converted from OBJ convention (+Y up, +Z toward viewer) into
- * Minecraft model convention (-Y up, +Z behind the player) during parse:
- *   mc.x = -obj.x,  mc.y = -obj.y,  mc.z = -obj.z
+ * Coordinates are converted during parse into the world-space frame the render mixin
+ * uses (entity origin at the feet, +Y up): mc.x = -obj.x, mc.y = obj.y, mc.z = -obj.z.
  * V is flipped too (mc texture space has V growing downward).
  */
 public final class ObjModelParser {
@@ -91,7 +90,7 @@ public final class ObjModelParser {
                   float ox = Float.parseFloat(parts[1]);
                   float oy = Float.parseFloat(parts[2]);
                   float oz = Float.parseFloat(parts[3]);
-                  float x = -ox, y = -oy, z = -oz; // OBJ -> Minecraft model convention
+                  float x = -ox, y = oy, z = -oz; // OBJ -> world-space (Y stays up; X/Z rotated 180 deg so the front faces the player)
                   positions.add(new float[]{x, y, z});
                   if (x < minX) minX = x;
                   if (y < minY) minY = y;

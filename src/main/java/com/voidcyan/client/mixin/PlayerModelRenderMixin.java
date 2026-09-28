@@ -1,5 +1,6 @@
 package com.voidcyan.client.mixin;
 
+import com.voidcyan.client.VoidCyanClient;
 import com.voidcyan.client.util.ObjModelParser;
 import com.voidcyan.client.util.PlayerModelManager;
 import net.minecraft.client.MinecraftClient;
@@ -77,6 +78,12 @@ public class PlayerModelRenderMixin {
       final LivingEntityRenderState fState = state;
       matrices.push();
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F - fState.bodyYaw));
+      // Auto-fit to player height so any authoring unit works, then apply the user's scale.
+      float height = model.heightY();
+      float fit = height > 1.0e-4F ? 1.8F / height : 1.0F;
+      float s = fit * Math.max(0.01F, VoidCyanClient.playerModelScale);
+      matrices.scale(s, s, s);
+      matrices.translate(0.0F, -model.minY, 0.0F); // stand the model's lowest point on the ground
       queue.submitCustom(matrices, layer, (entry, vertexConsumer) -> {
          try {
             int light = fState.light;
