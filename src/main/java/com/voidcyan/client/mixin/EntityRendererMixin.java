@@ -2,7 +2,6 @@ package com.voidcyan.client.mixin;
 
 import com.voidcyan.client.VoidCyanClient;
 import com.voidcyan.client.util.NameReplacer;
-import java.util.regex.Pattern;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.EntityRenderer;
@@ -56,16 +55,7 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 
             if (VoidCyanClient.isFriendGreenNameTagsEnabled && originalName != null) {
                String unformatted = originalName.getString();
-               boolean isFriend = false;
-
-               for (String friend : VoidCyanClient.friends) {
-                  if (unformatted.matches(".*\\b" + Pattern.quote(friend) + "\\b.*")) {
-                     isFriend = true;
-                     break;
-                  }
-               }
-
-               if (isFriend) {
+               if (VoidCyanClient.mentionsFriend(unformatted)) {
                   if (state instanceof PlayerEntityRenderState playerStatex && playerStatex.playerName != null) {
                      playerStatex.playerName = Text.literal(unformatted).formatted(Formatting.GREEN);
                   }

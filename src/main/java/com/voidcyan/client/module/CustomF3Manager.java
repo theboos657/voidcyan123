@@ -46,11 +46,6 @@ public final class CustomF3Manager {
       }
    }
 
-   public static List<Identifier> getSortedEntries() {
-      ensureEntriesInitialized();
-      return SORTED_ENTRIES;
-   }
-
    private static String configKey(Identifier id) {
       return id.getNamespace() + "." + id.getPath();
    }
@@ -64,24 +59,6 @@ public final class CustomF3Manager {
       return ENTRY_TOGGLES.getOrDefault(configKey(id), getDefaultEnabled(id));
    }
 
-   public static void setEntryEnabled(Identifier id, boolean enabled) {
-      ensureEntriesInitialized();
-      ENTRY_TOGGLES.put(configKey(id), enabled);
-      persist();
-      syncAllToVanillaProfile(MinecraftClient.getInstance());
-   }
-
-   public static void setAllEntries(boolean enabled) {
-      ensureEntriesInitialized();
-
-      for (Identifier id : SORTED_ENTRIES) {
-         ENTRY_TOGGLES.put(configKey(id), enabled);
-      }
-
-      persist();
-      syncAllToVanillaProfile(MinecraftClient.getInstance());
-   }
-
    public static void syncAllToVanillaProfile(MinecraftClient client) {
       if (VoidCyanClient.isCustomF3Enabled && client != null && client.debugHudEntryList != null) {
          ensureEntriesInitialized();
@@ -89,21 +66,6 @@ public final class CustomF3Manager {
          for (Identifier id : SORTED_ENTRIES) {
             boolean enabled = isEntryEnabled(id);
             client.debugHudEntryList.setEntryVisibility(id, enabled ? DebugHudEntryVisibility.IN_OVERLAY : DebugHudEntryVisibility.NEVER);
-         }
-      }
-   }
-
-   public static void restoreVanillaProfile(MinecraftClient client) {
-      if (client != null && client.debugHudEntryList != null) {
-         ensureEntriesInitialized();
-         Map<Identifier, DebugHudEntryVisibility> defaults = (Map<Identifier, DebugHudEntryVisibility>)DebugHudEntries.PROFILES.get(DebugProfileType.DEFAULT);
-         if (defaults == null) {
-            client.debugHudEntryList.readProfileFile();
-         } else {
-            for (Identifier id : SORTED_ENTRIES) {
-               DebugHudEntryVisibility vis = defaults.getOrDefault(id, DebugHudEntryVisibility.IN_OVERLAY);
-               client.debugHudEntryList.setEntryVisibility(id, vis);
-            }
          }
       }
    }

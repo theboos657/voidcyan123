@@ -20,12 +20,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.StringHelper;
 
 public class DropdownGuiScreen extends Screen {
-   private static final int HEADER_H = 18;
-   private static final int ROW_H = 18;
-   private static final int PANEL_W = 140;
    private static final Map<Integer, List<DropdownGuiScreen.Category>> tabWindows = new HashMap<>();
    private static int activeTab = 0;
    private static boolean initialized = false;
@@ -34,6 +30,9 @@ public class DropdownGuiScreen extends Screen {
    private static final String[] TABS = new String[]{
       "Modules", "Screenshots", "Backgrounds", "Settings", "Friends", "Config", "Statistics", "Notes", "Calculator", "Textures"
    };
+   private static final Identifier[] TAB_ICONS = java.util.stream.Stream.of(
+      "modules", "screenshots", "backgrounds", "global", "friends", "config", "stats", "stats", "global", "modules"
+   ).map(name -> Identifier.of("voidcyan", "textures/gui/icons/" + name + ".png")).toArray(Identifier[]::new);
    private float[] rowAnims = new float[0];
    private final float[] tabHoverProgress = new float[TABS.length];
 
@@ -622,8 +621,7 @@ public class DropdownGuiScreen extends Screen {
          }
 
          int labelColor = (int)(textAlpha * 255.0F) << 24 | 16777215;
-         String[] iconFiles = new String[]{"modules", "screenshots", "backgrounds", "global", "friends", "config", "stats", "stats", "global", "modules"};
-         Identifier iconTex = Identifier.of("voidcyan", "textures/gui/icons/" + iconFiles[i] + ".png");
+         Identifier iconTex = TAB_ICONS[i];
          int iconY = tabY + (tabH - 12) / 2;
          ctx.drawTexturedQuad(iconTex, tabX + 8, iconY, tabX + 20, iconY + 12, 0.0F, 1.0F, 0.0F, 1.0F);
          int textY = tabY + (tabH - 8) / 2;
@@ -1059,130 +1057,6 @@ public class DropdownGuiScreen extends Screen {
       }
    }
 
-   private static class ConfigRenderer implements DropdownGuiScreen.CustomWindowRenderer {
-      private String configNameInput = "";
-      private boolean isConfigNameFocused = false;
-      private int textCursor = 0;
-
-      @Override
-      public void render(DrawContext ctx, int x, int y, int width, int mx, int my) {
-         MinecraftClient c = MinecraftClient.getInstance();
-         int primaryColor = VoidCyanClient.getPrimaryColor();
-         ctx.drawTextWithShadow(c.textRenderer, Text.literal("Named Configs"), x + 12, y + 12, -1);
-         ctx.drawTextWithShadow(c.textRenderer, Text.literal("Type a name, then save or load any preset."), x + 12, y + 25, -5592406);
-         int fieldY = y + 42;
-         int fieldWidth = 178;
-         boolean fieldHovered = mx >= x + 12 && mx <= x + 12 + fieldWidth && my >= fieldY && my <= fieldY + 25;
-         ctx.fill(x + 12, fieldY, x + 12 + fieldWidth, fieldY + 25, this.isConfigNameFocused ? 1627389951 : (fieldHovered ? 1090519039 : 553648127));
-         String fieldText = this.configNameInput.isEmpty() && !this.isConfigNameFocused ? "Config name..." : this.configNameInput;
-         int fieldColor = this.configNameInput.isEmpty() && !this.isConfigNameFocused ? -5592406 : -1;
-         ctx.drawTextWithShadow(c.textRenderer, Text.literal(fieldText), x + 20, fieldY + 8, fieldColor);
-         if (this.isConfigNameFocused && System.currentTimeMillis() % 1000L < 500L) {
-            int cursorX = x + 20 + c.textRenderer.getWidth(this.configNameInput.substring(0, Math.min(this.textCursor, this.configNameInput.length())));
-            ctx.fill(cursorX, fieldY + 6, cursorX + 1, fieldY + 19, -1);
-         }
-
-         int saveX = x + 12 + fieldWidth + 8;
-         int saveW = width - (saveX - x) - 12;
-         boolean saveHovered = mx >= saveX && mx <= saveX + saveW && my >= fieldY && my <= fieldY + 25;
-         ctx.fill(saveX, fieldY, saveX + saveW, fieldY + 25, saveHovered ? -12255420 : -14505438);
-         ctx.drawTextWithShadow(c.textRenderer, Text.literal("Save"), saveX + (saveW - c.textRenderer.getWidth("Save")) / 2, fieldY + 8, -1);
-         List<String> namedConfigs = VoidCyanClient.getNamedConfigNames();
-         int listY = fieldY + 35;
-
-         for (String configName : namedConfigs) {
-            boolean itemHovered = mx >= x + 12 && mx <= x + width - 12 && my >= listY && my <= listY + 25;
-            ctx.fill(x + 12, listY, x + width - 12, listY + 25, itemHovered ? 1090519039 : 553648127);
-            ctx.drawTextWithShadow(c.textRenderer, Text.literal(configName), x + 20, listY + 8, -1);
-            int loadBtnW = 40;
-            int loadBtnX = x + width - 12 - loadBtnW - 4;
-            boolean loadHovered = mx >= loadBtnX && mx <= loadBtnX + loadBtnW && my >= listY + 4 && my <= listY + 21;
-            ctx.fill(loadBtnX, listY + 4, loadBtnX + loadBtnW, listY + 21, loadHovered ? -7829249 : -12303190);
-            ctx.drawTextWithShadow(c.textRenderer, Text.literal("Load"), loadBtnX + 8, listY + 8, -1);
-            listY += 29;
-         }
-      }
-
-      @Override
-      public boolean mouseClicked(double mx, double my, int btn, int x, int y, int width) {
-         int fieldY = y + 42;
-         int fieldWidth = 178;
-         if (mx >= x + 12 && mx <= x + 12 + fieldWidth && my >= fieldY && my <= fieldY + 25) {
-            this.isConfigNameFocused = true;
-            return true;
-         } else {
-            this.isConfigNameFocused = false;
-            int saveX = x + 12 + fieldWidth + 8;
-            int saveW = width - (saveX - x) - 12;
-            if (mx >= saveX && mx <= saveX + saveW && my >= fieldY && my <= fieldY + 25) {
-               if (!this.configNameInput.isEmpty()) {
-                  VoidCyanClient.saveNamedConfig(this.configNameInput);
-                  this.configNameInput = "";
-                  this.textCursor = 0;
-               }
-
-               return true;
-            } else {
-               List<String> namedConfigs = VoidCyanClient.getNamedConfigNames();
-               int listY = fieldY + 35;
-
-               for (String configName : namedConfigs) {
-                  int loadBtnW = 40;
-                  int loadBtnX = x + width - 12 - loadBtnW - 4;
-                  if (mx >= loadBtnX && mx <= loadBtnX + loadBtnW && my >= listY + 4 && my <= listY + 21) {
-                     VoidCyanClient.loadNamedConfig(configName);
-                     return true;
-                  }
-
-                  listY += 29;
-               }
-
-               return false;
-            }
-         }
-      }
-
-      @Override
-      public void mouseDragged(double mx, double my, int btn, int x, int y, int w) {
-      }
-
-      @Override
-      public void mouseReleased(double mx, double my, int btn, int x, int y, int w) {
-      }
-
-      @Override
-      public void mouseScrolled(double mx, double my, double a, int x, int y, int w) {
-      }
-
-      @Override
-      public void keyPressed(int k, int s, int m) {
-         if (this.isConfigNameFocused) {
-            if (k == 259) {
-               if (!this.configNameInput.isEmpty() && this.textCursor > 0) {
-                  this.configNameInput = this.configNameInput.substring(0, this.textCursor - 1) + this.configNameInput.substring(this.textCursor);
-                  this.textCursor--;
-               }
-            } else if (k == 263) {
-               if (this.textCursor > 0) {
-                  this.textCursor--;
-               }
-            } else if (k == 262 && this.textCursor < this.configNameInput.length()) {
-               this.textCursor++;
-            }
-         }
-      }
-
-      @Override
-      public void charTyped(char ch, int m) {
-         if (this.isConfigNameFocused) {
-            if (StringHelper.isValidChar(ch)) {
-               this.configNameInput = this.configNameInput.substring(0, this.textCursor) + ch + this.configNameInput.substring(this.textCursor);
-               this.textCursor++;
-            }
-         }
-      }
-   }
-
    public interface CustomWindowRenderer {
       void render(DrawContext var1, int var2, int var3, int var4, int var5, int var6);
 
@@ -1360,7 +1234,6 @@ public class DropdownGuiScreen extends Screen {
          if (this.draggingRgbSpeed) {
             float r = Math.max(0.0F, Math.min(1.0F, (float)(mouseX - (x + 95)) / 165.0F));
             VoidCyanClient.rgbSpeed = 1 + Math.round(r * 9.0F);
-            VoidCyanClient.saveConfig();
          }
 
          if (this.draggingGuiAnim) {

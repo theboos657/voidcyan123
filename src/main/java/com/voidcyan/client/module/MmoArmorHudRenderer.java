@@ -7,10 +7,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 
 public final class MmoArmorHudRenderer {
-   public static final int WIDTH = 62;
-   public static final int HEIGHT = 126;
-   private static final int EMPTY_ARMOR_COLOR = -14342095;
-   private static final int OUTLINE_COLOR = -15724008;
 
    private MmoArmorHudRenderer() {
    }

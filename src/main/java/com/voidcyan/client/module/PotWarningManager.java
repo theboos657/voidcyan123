@@ -1,6 +1,7 @@
 package com.voidcyan.client.module;
 
 import com.voidcyan.client.VoidCyanClient;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import net.minecraft.client.MinecraftClient;
@@ -12,12 +13,22 @@ import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 public class PotWarningManager {
+   private static String ignoredSource;
+   private static String[] ignoredIds = new String[0];
+
+   // Parsed once per setting change instead of once per effect per frame.
+   private static String[] ignoredEffectIds() {
+      String source = VoidCyanClient.potWarnIgnoredEffects;
+      if (source != ignoredSource) {
+         ignoredIds = Arrays.stream(source.split("[,\\s;]+")).map(String::trim).toArray(String[]::new);
+         ignoredSource = source;
+      }
+      return ignoredIds;
+   }
+
    private static long lastPotBeepTime = 0L;
    private static long lastEffectBeepTime = 0L;
 
@@ -65,8 +76,8 @@ public class PotWarningManager {
 
                            boolean ignored = false;
 
-                           for (String ignoredId : VoidCyanClient.potWarnIgnoredEffects.split("[,\\s;]+")) {
-                              if (effectId.contains(ignoredId.trim()) || effectId.equals(ignoredId.trim())) {
+                           for (String ignoredId : ignoredEffectIds()) {
+                              if (effectId.contains(ignoredId)) {
                                  ignored = true;
                                  break;
                               }

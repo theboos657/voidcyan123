@@ -21,7 +21,6 @@ import net.minecraft.util.Identifier;
  * The vanilla sprite object, identity and UVs all stay valid — no remapping needed.
  */
 public final class DynamicItemPreviewer {
-   private static Identifier overrideSpriteId = null;
    private static Sprite overrideSprite = null;
    private static SpriteAtlasTexture overrideAtlas = null;
    private static NativeImage originalPixels = null;
@@ -73,7 +72,6 @@ public final class DynamicItemPreviewer {
       NativeImage base = ((SpriteContentsImageAccessor) contents).voidcyan$getBaseImage();
       if (base == null) return false;
 
-      overrideSpriteId = itemTextureId;
       overrideSprite = sprite;
       overrideAtlas = atlas;
       canvasWidth = width;
@@ -155,7 +153,6 @@ public final class DynamicItemPreviewer {
          }
       }
 
-      overrideSpriteId = null;
       overrideSprite = null;
       overrideAtlas = null;
       if (originalPixels != null) {
@@ -170,7 +167,4 @@ public final class DynamicItemPreviewer {
       return overrideSprite != null;
    }
 
-   public static Identifier getActiveSpriteId() {
-      return overrideSpriteId;
-   }
 }

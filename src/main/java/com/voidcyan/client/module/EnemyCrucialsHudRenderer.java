@@ -9,8 +9,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 
 public final class EnemyCrucialsHudRenderer {
-   public static final int WIDTH = 126;
-   private static final int ROW_HEIGHT = 18;
 
    private EnemyCrucialsHudRenderer() {
    }

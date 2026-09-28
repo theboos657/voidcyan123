@@ -14,9 +14,6 @@ import com.voidcyan.client.module.TargetHudRenderer;
 import com.voidcyan.client.module.TextHudRenderer;
 import com.voidcyan.client.module.TransparentShieldRenderer;
 import com.voidcyan.client.module.WatermarkManager;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.MinecraftClient;
@@ -482,14 +479,7 @@ public class EditHudScreen extends Screen {
                y -> VoidCyanClient.irlClockY = y,
                s -> VoidCyanClient.irlClockScale = s,
                () -> {
-                  LocalTime time = LocalTime.now();
-                  DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(VoidCyanClient.isIrlClock24Hour ? "HH:mm:ss" : "hh:mm:ss a");
-                  String text = "Time: " + time.format(timeFormatter);
-                  if (VoidCyanClient.isIrlDateEnabled) {
-                     LocalDate date = LocalDate.now();
-                     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                     text = date.format(dateFormatter) + " " + text;
-                  }
+                  String text = VoidCyanClient.irlClockText();
 
                   return MinecraftClient.getInstance().textRenderer.getWidth(text) + 10;
                },
@@ -763,14 +753,7 @@ public class EditHudScreen extends Screen {
                int textAlpha = (int)((enabled ? 255 : 85) * progress);
                Object label = enabled ? el.name : el.name + " (off)";
                if (el.name.equals("IRL Clock") && enabled) {
-                  LocalTime time = LocalTime.now();
-                  DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(VoidCyanClient.isIrlClock24Hour ? "HH:mm:ss" : "hh:mm:ss a");
-                  String text = "Time: " + time.format(timeFormatter);
-                  if (VoidCyanClient.isIrlDateEnabled) {
-                     LocalDate date = LocalDate.now();
-                     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                     text = date.format(dateFormatter) + " " + text;
-                  }
+                  String text = VoidCyanClient.irlClockText();
 
                   label = text;
                }
@@ -946,10 +929,6 @@ public class EditHudScreen extends Screen {
       boolean bl = mouseX >= hX - dotSize && mouseX <= hX + dotSize && mouseY >= hY + h - dotSize && mouseY <= hY + h + dotSize;
       boolean br = mouseX >= hX + w - dotSize && mouseX <= hX + w + dotSize && mouseY >= hY + h - dotSize && mouseY <= hY + h + dotSize;
       return tl || tr || bl || br;
-   }
-
-   private boolean isHoveringDot(double mouseX, double mouseY, int hX, int hY, int w, int h, int dotSize) {
-      return mouseX >= hX + w - dotSize && mouseX <= hX + w + dotSize && mouseY >= hY + h - dotSize && mouseY <= hY + h + dotSize;
    }
 
    public boolean mouseReleased(Click click) {

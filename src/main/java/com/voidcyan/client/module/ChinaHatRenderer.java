@@ -15,7 +15,6 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
 public final class ChinaHatRenderer {
-   private static final int SEGMENTS = 24;
 
    private ChinaHatRenderer() {
    }

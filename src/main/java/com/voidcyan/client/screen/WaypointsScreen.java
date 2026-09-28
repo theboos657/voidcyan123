@@ -22,9 +22,7 @@ public class WaypointsScreen extends Screen {
    private int leftPaneWidth;
    private int rightPaneWidth;
    private String searchQuery = "";
-   private boolean searchActive = false;
    private int scrollOffset = 0;
-   private static final int ROW_H = 30;
    private boolean editing = false;
    private int editIndex = -1;
    private String nameInput = "";

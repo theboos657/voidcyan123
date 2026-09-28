@@ -43,7 +43,6 @@ public final class PlayerModelManager {
    /** True when the texture file exists and was registered successfully. */
    private static volatile boolean textureRegistered;
    /** Nano-timestamp of the last import, used for status messages. */
-   private static volatile long lastImportTime;
 
    private PlayerModelManager() {}
 
@@ -59,17 +58,12 @@ public final class PlayerModelManager {
       return textureRegistered;
    }
 
-   public static long getLastImportTime() {
-      return lastImportTime;
-   }
-
    /** Copies the chosen .obj into the config dir, parses it and caches the result. */
    public static ObjModelParser.Result importModel(Path sourceObj) throws IOException {
       Files.createDirectories(MODEL_DIR);
       Files.copy(sourceObj, MODEL_FILE, StandardCopyOption.REPLACE_EXISTING);
       ObjModelParser.Result result = ObjModelParser.parse(MODEL_FILE);
       cachedResult = result;
-      lastImportTime = System.nanoTime();
       ensureTextureRegistered();
       return result;
    }
@@ -102,23 +96,6 @@ public final class PlayerModelManager {
       cachedResult = null;
    }
 
-   /** Re-reads model.obj from disk (after manual edits). Returns null on failure. */
-   public static ObjModelParser.Result reloadFromDisk() {
-      try {
-         if (!Files.isRegularFile(MODEL_FILE)) {
-            cachedResult = null;
-            return null;
-         }
-         ObjModelParser.Result result = ObjModelParser.parse(MODEL_FILE);
-         cachedResult = result;
-         ensureTextureRegistered();
-         return result;
-      } catch (IOException e) {
-         cachedResult = null;
-         return null;
-      }
-   }
-
    /**
     * Loads the config-dir texture.png through the normal resource-pipeline upload
     * path: loadContents returns a TextureContents built from the file's NativeImage,
@@ -136,6 +113,7 @@ public final class PlayerModelManager {
             return new TextureContents(image, null);
          }
       }
+
    }
 
    /** Convenience: the entity-cutout layer bound to the custom model texture. */

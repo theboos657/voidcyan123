@@ -16,13 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 )
 public class MixinGameRenderer {
    @Inject(
-      method = {"render"},
-      at = {@At("TAIL")}
-   )
-   private void onRenderEnd(CallbackInfo ci) {
-   }
-
-   @Inject(
       method = {"getFov"},
       at = {@At("RETURN")},
       cancellable = true

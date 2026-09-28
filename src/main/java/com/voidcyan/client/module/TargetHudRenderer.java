@@ -2,7 +2,6 @@ package com.voidcyan.client.module;
 
 import com.voidcyan.client.VoidCyanClient;
 import com.voidcyan.client.screen.EditHudScreen;
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -32,9 +31,6 @@ public class TargetHudRenderer {
    private static final Map<UUID, Integer> totemOverrides = new HashMap<>();
    private static final Map<UUID, Integer> windChargesUsed = new HashMap<>();
    private static float animProgress = 0.0F;
-   private static boolean wasVisible = false;
-   private static final float APPEAR_SPEED = 0.18F;
-   private static final float DISMISS_SPEED = 0.1F;
    private static LivingEntity stickyTarget = null;
    private static long stickyLastSeen = 0L;
 
@@ -175,7 +171,6 @@ public class TargetHudRenderer {
    public static void render(DrawContext context, int targetX, int targetY, float scale) {
       if (!VoidCyanClient.isTargetHudEnabled) {
          animProgress = 0.0F;
-         wasVisible = false;
       } else {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null && client.world != null) {
@@ -193,7 +188,6 @@ public class TargetHudRenderer {
                }
             }
 
-            wasVisible = shouldShow;
             if (!(animProgress <= 0.0F) && target != null) {
                int width = 160;
                int baseHeight = VoidCyanClient.targetHudShowArmor ? 55 : 45;
@@ -400,7 +394,7 @@ public class TargetHudRenderer {
    public static List<PlayerEntity> getPlayersInTrackingRange() {
       MinecraftClient client = MinecraftClient.getInstance();
       if (client.player != null && client.world != null) {
-         if (!(client.currentScreen instanceof VoidCyanMenuScreen) && !(client.currentScreen instanceof EditHudScreen)) {
+         if (!(client.currentScreen instanceof EditHudScreen)) {
             List<PlayerEntity> players = new ArrayList<>();
 
             for (PlayerEntity player : client.world.getPlayers()) {
@@ -473,8 +467,7 @@ public class TargetHudRenderer {
       MinecraftClient client = MinecraftClient.getInstance();
       if (client.player == null || client.world == null) {
          return null;
-      } else if (!(client.currentScreen instanceof VoidCyanMenuScreen)
-         && !(client.currentScreen instanceof EditHudScreen)) {
+      } else if (!(client.currentScreen instanceof EditHudScreen)) {
          LivingEntity direct = null;
          if (client.crosshairTarget instanceof EntityHitResult hitResult
             && hitResult.getEntity() instanceof PlayerEntity player
@@ -541,21 +534,13 @@ public class TargetHudRenderer {
          this.update(player);
       }
 
-      public void update(PlayerEntity player) {
-         Item[] itemsToTrack = new Item[]{
-            Items.ENDER_PEARL,
-            Items.GOLDEN_APPLE,
-            Items.ENCHANTED_GOLDEN_APPLE,
-            Items.COBWEB,
-            Items.TOTEM_OF_UNDYING,
-            Items.WIND_CHARGE,
-            Items.END_CRYSTAL,
-            Items.RESPAWN_ANCHOR,
-            Items.GLOWSTONE,
-            Items.EXPERIENCE_BOTTLE
-         };
+      private static final Item[] ITEMS_TO_TRACK = {
+         Items.ENDER_PEARL, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE, Items.COBWEB, Items.TOTEM_OF_UNDYING,
+         Items.WIND_CHARGE, Items.END_CRYSTAL, Items.RESPAWN_ANCHOR, Items.GLOWSTONE, Items.EXPERIENCE_BOTTLE
+      };
 
-         for (Item item : itemsToTrack) {
+      public void update(PlayerEntity player) {
+         for (Item item : ITEMS_TO_TRACK) {
             int currentHandCount = TargetHudRenderer.countItem(player, item);
             int lastSeen = this.lastSeenCounts.getOrDefault(item, 0);
             int known = this.knownCounts.getOrDefault(item, 0);

@@ -18,8 +18,4 @@ public class OverlayTextureMixin {
       VoidCyanClient.overlayTextureInstance = self;
       VoidCyanClient.updateHitColorTexture();
    }
-
-   static {
-      System.out.println("[VoidCyan] OverlayTextureMixin loaded!");
-   }
 }

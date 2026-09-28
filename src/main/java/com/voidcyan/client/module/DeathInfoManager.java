@@ -1,7 +1,6 @@
 package com.voidcyan.client.module;
 
 import com.voidcyan.client.VoidCyanClient;
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import com.voidcyan.client.util.WaypointManager;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -18,10 +17,6 @@ import net.minecraft.text.Text;
 
 public final class DeathInfoManager {
    private static final DateTimeFormatter CLOCK_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
-   private static final int LINE_H = 12;
-   private static final int PAD = 5;
-   private static final int BTN_H = 18;
-   private static final int BTN_W = 110;
    public static boolean expanded = false;
    public static String lastDeathCause = "";
    public static String waypointFeedback = "";
@@ -175,7 +170,7 @@ public final class DeathInfoManager {
 
    public static void render(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+      if (client.currentScreen == null) {
          if (VoidCyanClient.hasDeathInfo) {
             drawPanel(context, client, 0, 0, false, false);
          }
@@ -266,34 +261,6 @@ public final class DeathInfoManager {
       double lx = (mx - anchorX) / scale;
       double ly = (my - anchorY) / scale;
       return lx >= btnX && lx < btnX + 110 && ly >= btnY && ly < btnY + 18;
-   }
-
-   public static boolean handlePreviewClick(double mouseX, double mouseY, int anchorX, int anchorY, int button) {
-      if (button != 0) {
-         return false;
-      } else {
-         MinecraftClient client = MinecraftClient.getInstance();
-         int w = getPreviewWidth(client);
-         int h = getPreviewHeight();
-         if (!(mouseX < anchorX) && !(mouseY < anchorY) && !(mouseX >= anchorX + w) && !(mouseY >= anchorY + h)) {
-            double lx = mouseX - anchorX;
-            double ly = mouseY - anchorY;
-            if (expanded && VoidCyanClient.hasDeathInfo) {
-               int boxH = getPreviewHeight();
-               int btnX = 5;
-               int btnY = boxH - 5 - 18;
-               if (lx >= btnX && lx < btnX + 110 && ly >= btnY && ly < btnY + 18) {
-                  addDeathWaypoint();
-                  return true;
-               }
-            }
-
-            expanded = !expanded;
-            return true;
-         } else {
-            return false;
-         }
-      }
    }
 
    private static boolean isMouseOverButton(MinecraftClient client, int btnX, int btnY) {

@@ -1,14 +1,11 @@
 package com.voidcyan.client.module;
 
 import com.voidcyan.client.VoidCyanClient;
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import org.lwjgl.glfw.GLFW;
 
 public class MouseStrokesRenderer {
-   private static final int BOX_SIZE = 60;
-   private static final int HALF = 30;
    private static final long RESET_TIMEOUT_MS = 5000L;
    private static float cursorX = 30.0F;
    private static float cursorY = 30.0F;
@@ -22,7 +19,7 @@ public class MouseStrokesRenderer {
    public static void render(DrawContext context) {
       if (VoidCyanClient.isMouseStrokesEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             if (client.getWindow() != null) {
                if (client.player != null) {
                   long window = client.getWindow().getHandle();

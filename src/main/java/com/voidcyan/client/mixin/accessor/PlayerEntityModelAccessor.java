@@ -9,7 +9,4 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface PlayerEntityModelAccessor {
    @Accessor("head")
    ModelPart voidcyan$getHead();
-
-   @Accessor("hat")
-   ModelPart voidcyan$getHat();
 }

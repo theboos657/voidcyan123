@@ -5,7 +5,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
 public class WatermarkManager {
-   public static final String WATERMARK_TEXT = "VoidCyan Client v1.0.0";
 
    public static int getWidth(MinecraftClient client) {
       return client != null && client.textRenderer != null ? client.textRenderer.getWidth("VoidCyan Client v1.0.0") + 4 : 100;

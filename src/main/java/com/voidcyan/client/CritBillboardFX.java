@@ -6,7 +6,6 @@ import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -105,12 +104,6 @@ public final class CritBillboardFX {
 
    private static final java.util.Map<String, Long> lastPreviewStep = new java.util.HashMap<>();
 
-   /** True while the given preset's preview still has live sparks. */
-   public static boolean previewAlive(String shape) {
-      List<Spark> list = PREVIEWS.get(shape);
-      return list != null && !list.isEmpty();
-   }
-
    public static void clearPreviews() {
       PREVIEWS.clear();
       lastPreviewStep.clear();
@@ -118,11 +111,6 @@ public final class CritBillboardFX {
 
    public static void clear() {
       SPARKS.clear();
-   }
-
-   /** Number of live sparks (for GUI debug if wanted). */
-   public static int liveCount() {
-      return SPARKS.size();
    }
 
    // ===================== Update =====================

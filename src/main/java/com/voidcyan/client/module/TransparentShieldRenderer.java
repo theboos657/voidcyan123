@@ -5,8 +5,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
 public class TransparentShieldRenderer {
-   private static final int SHIELD_WIDTH = 182;
-   private static final int SHIELD_HEIGHT = 9;
 
    private TransparentShieldRenderer() {
    }

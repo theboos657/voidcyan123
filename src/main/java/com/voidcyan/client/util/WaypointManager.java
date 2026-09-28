@@ -29,10 +29,6 @@ public class WaypointManager {
    private static String currentServerId = "default";
    private static boolean loadedForCurrentServer = false;
 
-   public static String getCurrentServerId() {
-      return currentServerId;
-   }
-
    public static String getCurrentServerLabel(MinecraftClient client) {
       if (client == null) {
          return currentServerId;

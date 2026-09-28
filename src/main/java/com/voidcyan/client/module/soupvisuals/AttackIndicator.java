@@ -15,7 +15,6 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.util.math.MatrixStack.Entry;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.decoration.EndCrystalEntity;
@@ -167,13 +166,6 @@ public class AttackIndicator {
       } else {
          return false;
       }
-   }
-
-   private static boolean hasAnyArmor(LivingEntity entity) {
-      return !entity.getEquippedStack(EquipmentSlot.HEAD).isEmpty()
-         || !entity.getEquippedStack(EquipmentSlot.CHEST).isEmpty()
-         || !entity.getEquippedStack(EquipmentSlot.LEGS).isEmpty()
-         || !entity.getEquippedStack(EquipmentSlot.FEET).isEmpty();
    }
 
    public static void renderTarget(WorldRenderContext context) {

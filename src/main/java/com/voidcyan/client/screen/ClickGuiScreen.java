@@ -39,7 +39,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.text.Text;
@@ -123,7 +122,7 @@ public class ClickGuiScreen extends Screen {
    private int windowW = 0;
    private int windowH = 0;
    private Map<String, Identifier> screenshotTextures = new HashMap<>();
-   private Map<String, NativeImageBackedTexture> screenshotTextureObjects = new HashMap<>();
+   private boolean saveOnRelease;
    private Map<String, Identifier> backgroundTextures = new HashMap<>();
    private Map<String, Integer> backgroundDimensions = new HashMap<>();
    private Map<String, NativeImageBackedTexture> backgroundTextureObjects = new HashMap<>();
@@ -140,11 +139,6 @@ public class ClickGuiScreen extends Screen {
       GuiScaleManager.update(this.client);
       this.width = GuiScaleManager.logicalWidth(this.client);
       this.height = GuiScaleManager.logicalHeight(this.client);
-   }
-
-   public void setInitialTab(int tab) {
-      this.currentTab = tab;
-      this.targetTab = tab;
    }
 
    public ClickGuiScreen(Screen parent) {
@@ -1193,11 +1187,6 @@ public class ClickGuiScreen extends Screen {
       context.getMatrices().popMatrix();
    }
 
-   public int getWindowX() { return this.windowX; }
-   public int getWindowY() { return this.windowY; }
-   public int getWindowW() { return this.windowW; }
-   public int getWindowH() { return this.windowH; }
-
    private void updateAnimations(float delta) {
       long now = System.currentTimeMillis();
       long elapsedMs = this.lastAnimationUpdateTime == 0L ? 16L : Math.max(1L, now - this.lastAnimationUpdateTime);
@@ -1260,10 +1249,6 @@ public class ClickGuiScreen extends Screen {
 
    private float easeOutCubic(float t) {
       return 1.0F - (float)Math.pow(1.0F - t, 3.0);
-   }
-
-   private float easeInOutCubic(float t) {
-      return t < 0.5F ? 4.0F * t * t * t : (float)(1.0 - Math.pow(-2.0F * t + 2.0F, 3.0) / 2.0);
    }
 
    private int getSidebarTabStartY() {
@@ -1401,22 +1386,19 @@ public class ClickGuiScreen extends Screen {
       return trimmed.isEmpty() ? ellipsis : trimmed + ellipsis;
    }
 
-   private String profileName() {
-      if (this.client != null && this.client.getSession() != null && this.client.getSession().getUsername() != null) {
-         return this.client.getSession().getUsername();
-      }
-
-      return "Player";
-   }
+   private static String mcVersion;
 
    private String mcVersion() {
-      try {
-         return net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft")
-            .map(c -> c.getMetadata().getVersion().getFriendlyString())
-            .orElse("?");
-      } catch (Exception e) {
-         return "?";
+      if (mcVersion == null) {
+         try {
+            mcVersion = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("minecraft")
+               .map(c -> c.getMetadata().getVersion().getFriendlyString())
+               .orElse("?");
+         } catch (Exception e) {
+            mcVersion = "?";
+         }
       }
+      return mcVersion;
    }
 
    private void renderAnimatedContent(DrawContext context, int mouseX, int mouseY, float openProgress, int winX, int winY, int winW, int winH) {
@@ -1796,94 +1778,6 @@ public class ClickGuiScreen extends Screen {
       }
    }
 
-   private static String getModuleIcon(String name) {
-      switch (name) {
-         case "FPS Counter": return "\u26a1";
-         case "Coordinates": return "\u25ce";
-         case "CPS Counter": return "\u2736";
-         case "Keystrokes": return "\u2328";
-         case "Compass": return "\u25ce";
-         case "Stats HUD": return "\u2605";
-         case "Saturation": return "\u2665";
-         case "Biome Display": return "\u25c8";
-         case "Block Info HUD": return "\u25a3";
-         case "TNT Timer": return "\u25c9";
-         case "Reach Display": return "\u2194";
-         case "Arrow Counter": return "\u2191";
-         case "Totem Counter": return "\u25c6";
-         case "Potion Status": return "\u2b1f";
-         case "Armor Status": return "\u2b21";
-         case "Target HUD": return "\u2295";
-         case "Custom Hitbox": return "\u25a2";
-         case "Health Indicators": return "\u2665";
-         case "Damage Hearts": return "\u2764";
-         case "Totem Trace": return "\u2736";
-         case "Hit Color": return "\u25c8";
-         case "Totem Pop Color": return "\u25c9";
-         case "Damage Color": return "\u25c6";
-         case "Totem Pop Notifier": return "\u2736";
-         case "Effects": return "\u2728";
-         case "Logout Spots": return "\u25ce";
-         case "Low Health Alarm": return "\u26a0";
-         case "Pot Warning": return "\u26a0";
-         case "Drop Prevention": return "\u2298";
-         case "Inv HUD": return "\u229e";
-         case "Item Physics": return "\u25eb";
-         case "Big Items": return "\u2b21";
-         case "Inv Highlight": return "\u25a3";
-         case "Item Animations": return "\u25c8";
-         case "View Model": return "\u25ad";
-         case "Transparent Shield": return "\u2299";
-         case "Waypoints": return "\u25c8";
-         case "Fullbright": return "\u2600";
-         case "Time Changer": return "\u25f7";
-         case "Water Fog": return "\u25e6";
-         case "FreeLook": return "\u25ce";
-         case "Zoom": return "\u2295";
-         case "Player Trail": return "\u2736";
-         case "Toggle Sprint": return "\u26a1";
-         case "Toggle Sneak": return "\u25bc";
-         case "Nick Hider": return "\u25c9";
-         case "Peer Nick": return "\u25c8";
-         case "Big Head": return "\u25ce";
-         case "China Hat": return "\u25ad";
-         default: return "\u25c8";
-      }
-   }
-
-   private void drawModernToggle(DrawContext context, int x, int y, int width, int height, boolean enabled, float animProgress) {
-      int radius = height / 2;
-      int activeCol = VoidCyanClient.getPrimaryColor();
-      int inactiveCol = -14012876;
-      int r1 = inactiveCol >> 16 & 0xFF;
-      int g1 = inactiveCol >> 8 & 0xFF;
-      int b1 = inactiveCol & 0xFF;
-      int r2 = activeCol >> 16 & 0xFF;
-      int g2 = activeCol >> 8 & 0xFF;
-      int b2 = activeCol & 0xFF;
-      int r = (int)(r1 + (r2 - r1) * animProgress);
-      int g = (int)(g1 + (g2 - g1) * animProgress);
-      int b = (int)(b1 + (b2 - b1) * animProgress);
-      int trackColor = 0xFF000000 | r << 16 | g << 8 | b;
-      drawModernRoundedRect(context, x, y, width, height, radius, trackColor);
-      int thumbRadius = radius - 2;
-      int thumbMinX = x + 2;
-      int thumbMaxX = x + width - thumbRadius * 2 - 2;
-      int thumbX = (int)(thumbMinX + (thumbMaxX - thumbMinX) * animProgress);
-      drawModernRoundedRect(context, thumbX, y + 2, thumbRadius * 2, thumbRadius * 2, thumbRadius, -1);
-   }
-
-   private void updateScrollMax(int totalRows, int rowHeight, int padding, int startY) {
-      int totalHeight = totalRows * (rowHeight + padding);
-      int visibleHeight = this.height - startY - 20;
-      if (totalHeight > visibleHeight) {
-         this.maxScrollOffset = totalHeight - visibleHeight;
-      } else {
-         this.maxScrollOffset = 0;
-         this.scrollOffset = 0;
-      }
-   }
-
    private static void drawModernRoundedRect(DrawContext context, int x, int y, int width, int height, int radius, int color) {
       if (width <= 0 || height <= 0) return;
       if (radius <= 0) {
@@ -1920,22 +1814,10 @@ public class ClickGuiScreen extends Screen {
       }
    }
 
-   private void drawScrollbar(DrawContext context, int x, int y, int height) {
-      GuiStyle.scrollbar(context, x, y, height, this.scrollOffset, this.maxScrollOffset, VoidCyanClient.getPrimaryColor(), 1.0F);
-   }
-
    private void drawGlowText(DrawContext context, String text, int x, int y, int color, float alpha) {
       int a = (int)(alpha * 255.0F);
       int c = a << 24 | color & 16777215;
       context.drawTextWithShadow(this.textRenderer, Text.literal(text), x, y, c);
-   }
-
-   private void renderAnimatedToggle(DrawContext context, int x, int y, int width, int height, boolean enabled, float animProgress, float alpha) {
-      GuiStyle.toggleSwitch(context, x, y, width, height, enabled, animProgress, VoidCyanClient.getPrimaryColor(), alpha);
-   }
-
-   private static void drawSmoothCapsule(DrawContext context, int x, int y, int width, int radius, int color) {
-      drawModernRoundedRect(context, x, y, width, radius * 2, Math.min(radius, 3), color);
    }
 
    private void renderAnimatedScreenshotsTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
@@ -2201,7 +2083,7 @@ public class ClickGuiScreen extends Screen {
 
          this.drawGlowingBorder(context, previewAreaX, previewAreaY, previewAreaWidth, previewAreaHeight, this.secondaryColor, textAlpha * 0.5F);
          String fileInfo = screenshot.file.getName();
-         long fileSize = screenshot.file.exists() ? screenshot.file.length() : 0L;
+         long fileSize = screenshot.fileSize();
          String sizeInfo = String.format(" (%.1f KB)", fileSize / 1024.0);
          String fullInfo = fileInfo + sizeInfo;
          int infoColor = (int)(textAlpha * 180.0F) << 24 | 13421772;
@@ -2334,13 +2216,14 @@ public class ClickGuiScreen extends Screen {
                Identifier textureId = Identifier.of("voidcyan", "screenshot_" + screenshot.name.hashCode());
                this.client.getTextureManager().registerTexture(textureId, texture);
                this.screenshotTextures.put(screenshot.name, textureId);
-               this.screenshotTextureObjects.put(screenshot.name, texture);
                return textureId;
             }
          } catch (Exception var9) {
             System.err.println("Failed to load screenshot: " + screenshot.name + " - " + var9.getMessage());
          }
 
+         // Remember the failure so the file isn't re-read every frame.
+         this.screenshotTextures.put(screenshot.name, null);
          return null;
       }
    }
@@ -2351,76 +2234,6 @@ public class ClickGuiScreen extends Screen {
          return new int[]{packed >> 16, packed & 65535};
       } else {
          return new int[]{0, 0};
-      }
-   }
-
-   private void renderScreenshotControls(
-      DrawContext context, int mouseX, int mouseY, int x, int y, int width, ClickGuiScreen.Screenshot screenshot, float alpha
-   ) {
-      if (!(alpha <= 0.3F) && screenshot != null) {
-         float textAlpha = Math.min(1.0F, (alpha - 0.3F) / 0.7F);
-         this.drawGlowText(context, "Screenshot Name", x, y, this.primaryColor, textAlpha);
-         int nameY = y + 25;
-         this.renderEditableNameField(context, mouseX, mouseY, x, nameY, width, screenshot, textAlpha);
-         int buttonY = nameY + 40;
-         int buttonHeight = 25;
-         int buttonSpacing = 8;
-         this.renderScreenshotButton(context, mouseX, mouseY, x, buttonY, width, buttonHeight, "Open Folder", -11751600, textAlpha);
-         buttonY += buttonHeight + buttonSpacing;
-         this.renderScreenshotButton(context, mouseX, mouseY, x, buttonY, width, buttonHeight, "Delete", -48060, textAlpha);
-         buttonY += buttonHeight + buttonSpacing;
-         this.renderScreenshotButton(context, mouseX, mouseY, x, buttonY, width, buttonHeight, "Apply", -14575885, textAlpha);
-         buttonY += buttonHeight + buttonSpacing + 10;
-         this.drawAnimatedCard(context, x, buttonY, width, 60, this.secondaryColor, 0.3F, textAlpha);
-         if (textAlpha > 0.5F) {
-            float infoAlpha = (textAlpha - 0.5F) * 2.0F;
-            int infoColor = (int)(infoAlpha * 255.0F) << 24 | 16777215;
-            context.drawTextWithShadow(this.textRenderer, Text.literal(" Info"), x + 8, buttonY + 8, infoColor);
-            int smallColor = (int)(infoAlpha * 180.0F) << 24 | 13421772;
-            context.drawTextWithShadow(this.textRenderer, Text.literal("Size: 1.2 MB"), x + 8, buttonY + 25, smallColor);
-            context.drawTextWithShadow(this.textRenderer, Text.literal("Date: Today"), x + 8, buttonY + 40, smallColor);
-         }
-      }
-   }
-
-   private void renderEditableNameField(DrawContext context, int mouseX, int mouseY, int x, int y, int width, ClickGuiScreen.Screenshot screenshot, float alpha) {
-      boolean isHovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + 30;
-      boolean isFocused = screenshot.isEditing;
-      float intensity = isFocused ? 1.0F : (isHovered ? 0.8F : 0.4F);
-      int borderColor = isFocused ? this.accentColor : this.primaryColor;
-      this.drawAnimatedCard(context, x, y, width, 30, borderColor, intensity, alpha);
-      if (alpha > 0.5F) {
-         float textAlpha = (alpha - 0.5F) * 2.0F;
-         int textColor = (int)(textAlpha * 255.0F) << 24 | 16777215;
-         String displayText = screenshot.editableName;
-         context.drawTextWithShadow(this.textRenderer, Text.literal(displayText), x + 12, y + 11, textColor);
-         int extColor = (int)(textAlpha * 180.0F) << 24 | 8421504;
-         context.drawTextWithShadow(
-            this.textRenderer, Text.literal(".png"), x + 12 + this.textRenderer.getWidth(displayText) + (isFocused ? 5 : 0), y + 11, extColor
-         );
-      }
-   }
-
-   private void renderScreenshotButton(DrawContext context, int mouseX, int mouseY, int x, int y, int width, int height, String text, int color, float alpha) {
-      boolean isHovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-      float intensity = isHovered ? 1.0F : 0.7F;
-      float scale = isHovered ? 1.02F : 1.0F;
-      int scaledWidth = (int)(width * scale);
-      int scaledHeight = (int)(height * scale);
-      int offsetX = (width - scaledWidth) / 2;
-      int offsetY = (height - scaledHeight) / 2;
-      this.drawAnimatedCard(context, x + offsetX, y + offsetY, scaledWidth, scaledHeight, color, intensity, alpha);
-      if (alpha > 0.5F) {
-         float textAlpha = (alpha - 0.5F) * 2.0F;
-         int textColor = (int)(textAlpha * 255.0F) << 24 | 16777215;
-         int textX = x + (width - this.textRenderer.getWidth(text)) / 2;
-         int textY = y + (height - 9) / 2;
-         context.drawTextWithShadow(this.textRenderer, Text.literal(text), textX, textY, textColor);
-      }
-
-      if (isHovered) {
-         int glowAlpha = (int)(alpha * 60.0F);
-         this.drawGlowingBorder(context, x + offsetX - 2, y + offsetY - 2, scaledWidth + 4, scaledHeight + 4, color, alpha * 0.8F);
       }
    }
 
@@ -2549,6 +2362,7 @@ public class ClickGuiScreen extends Screen {
          try {
             File imageFile = bg.file;
             if (!imageFile.exists()) {
+               this.backgroundTextures.put(bg.name, null);
                return null;
             } else {
                NativeImage nativeImage;
@@ -2559,6 +2373,7 @@ public class ClickGuiScreen extends Screen {
                } catch (Exception var8) {
                   BufferedImage bimg = ImageIO.read(imageFile);
                   if (bimg == null) {
+                     this.backgroundTextures.put(bg.name, null);
                      return null;
                   }
 
@@ -2580,6 +2395,7 @@ public class ClickGuiScreen extends Screen {
             }
          } catch (Exception var9) {
             System.err.println("[VoidCyan] Error loading background preview: " + var9.getMessage());
+            this.backgroundTextures.put(bg.name, null);
             return null;
          }
       }
@@ -2704,102 +2520,6 @@ public class ClickGuiScreen extends Screen {
 
       if (isHovered) {
          this.drawGlowingBorder(context, x + offsetX - 1, y + offsetY - 1, scaledWidth + 2, scaledHeight + 2, color, alpha * 0.8F);
-      }
-   }
-
-   private void renderAnimatedOverlaysTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
-      this.drawGlowText(context, "Overlay Settings", x, y, this.primaryColor, alpha);
-      List<ClickGuiScreen.ModuleInfo> overlayModules = new ArrayList<>();
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Fire", () -> VoidCyanClient.isFireEnabled = !VoidCyanClient.isFireEnabled, VoidCyanClient.isFireEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Portal", () -> VoidCyanClient.isPortalEnabled = !VoidCyanClient.isPortalEnabled, VoidCyanClient.isPortalEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Pumpkin", () -> VoidCyanClient.isPumpkinEnabled = !VoidCyanClient.isPumpkinEnabled, VoidCyanClient.isPumpkinEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Hurtcam", () -> VoidCyanClient.isHurtcamEnabled = !VoidCyanClient.isHurtcamEnabled, VoidCyanClient.isHurtcamEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo(
-            "Water Fog", () -> VoidCyanClient.isWaterFogEnabled = !VoidCyanClient.isWaterFogEnabled, VoidCyanClient.isWaterFogEnabled
-         )
-      );
-      int cardWidth = (width - 40) / 2;
-      int cardHeight = 86;
-      int currentX = x;
-      int currentY = y + 40;
-      int cardsPerRow = 2;
-      int cardIndex = 0;
-
-      for (ClickGuiScreen.ModuleInfo overlay : overlayModules) {
-         if (cardIndex < this.cardAnimations.length) {
-            float cardProgress = Math.min(1.0F, this.cardAnimations[Math.min(cardIndex, this.cardAnimations.length - 1)] * alpha);
-            this.renderAnimatedOverlayCard(context, mouseX, mouseY, currentX, currentY, cardWidth, cardHeight, overlay, cardProgress);
-         }
-
-         currentX += cardWidth + 20;
-         if (++cardIndex % cardsPerRow == 0) {
-            currentX = x;
-            currentY += cardHeight + 20;
-         }
-      }
-   }
-
-   private void renderAnimatedOverlayCard(
-      DrawContext context, int mouseX, int mouseY, int x, int y, int width, int height, ClickGuiScreen.ModuleInfo overlay, float progress
-   ) {
-      if (!(progress <= 0.0F)) {
-         boolean isHovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-         boolean isEnabled = overlay.enabled;
-         int switchX = x + width - 50;
-         int switchY = y + height - 23;
-         int switchWidth = 40;
-         int switchHeight = 16;
-         boolean isHoveringSwitch = mouseX >= switchX && mouseX <= switchX + switchWidth && mouseY >= switchY && mouseY <= switchY + switchHeight;
-         float hoverProgress = isHovered ? Math.min(1.0F, progress * 2.0F) : 0.0F;
-         this.drawAnimatedCard(context, x, y, width, height, isEnabled ? this.accentColor : this.secondaryColor, isEnabled ? 0.8F : 0.4F, progress);
-         if (hoverProgress > 0.0F) {
-            int hoverAlpha = (int)(hoverProgress * 25.0F);
-            context.fill(x + 1, y + 1, x + width - 1, y + height - 1, hoverAlpha << 24 | 13166847);
-            int hTopA = (int)(hoverProgress * 40.0F);
-            context.fill(x + 1, y + 1, x + width - 1, y + 2, hTopA << 24 | 16777215);
-         }
-
-         if (!(progress < 0.5F)) {
-            float textAlpha = (progress - 0.5F) * 2.0F;
-            int textColor = (int)(textAlpha * 255.0F) << 24 | 16777215;
-            int textY = y + 15;
-            context.drawTextWithShadow(this.textRenderer, Text.literal(overlay.name), x + 12, textY, textColor);
-            String description = this.getOverlayDescription(overlay.name);
-            int descColor = (int)(textAlpha * 180.0F) << 24 | 13421772;
-            context.drawTextWithShadow(this.textRenderer, Text.literal(description), x + 12, textY + 15, descColor);
-            if (isHoveringSwitch) {
-               int labelColor = (int)(textAlpha * 200.0F) << 24 | 16777215;
-               context.drawTextWithShadow(this.textRenderer, Text.literal("Toggle"), x + width - 85, y + height - 20, labelColor);
-            }
-
-            this.renderAnimatedToggle(context, switchX, switchY, switchWidth, switchHeight, isEnabled, 1.0F, textAlpha);
-         }
-      }
-   }
-
-   private String getOverlayDescription(String overlayName) {
-      switch (overlayName) {
-         case "Fire":
-            return "Remove fire overlay";
-         case "Portal":
-            return "Remove portal overlay";
-         case "Pumpkin":
-            return "Remove pumpkin overlay";
-         case "Hurtcam":
-            return "Disable hurt camera shake";
-         case "Water Fog":
-            return "Remove water fog effect";
-         default:
-            return "Overlay setting";
       }
    }
 
@@ -3088,63 +2808,6 @@ public class ClickGuiScreen extends Screen {
       }
    }
 
-   private void renderAnimatedColorSlider(DrawContext context, int mouseX, int mouseY, int x, int y, int width, String label, int value, int color, float alpha) {
-      if (!(alpha <= 0.0F)) {
-         boolean isHovered = mouseX >= x + 50 && mouseX <= x + width && mouseY >= y && mouseY <= y + 15;
-         float hoverProgress = isHovered ? Math.min(1.0F, alpha * 3.0F) : 0.0F;
-         int textColor = (int)(alpha * 255.0F) << 24 | 16777215;
-         context.drawTextWithShadow(this.textRenderer, Text.literal(label), x, y + 3, textColor);
-         int trackY = y + 6;
-         int trackHeight = 8;
-         context.fill(x + 50, trackY, x + width, trackY + trackHeight, (int)(alpha * 100.0F) << 24 | 4210752);
-         float fillRatio = value / 255.0F;
-         int fillWidth = (int)((width - 50) * fillRatio * alpha);
-         int fillColor = (int)(alpha * 255.0F) << 24 | color & 16777215;
-         context.fill(x + 50, trackY + 1, x + 50 + fillWidth, trackY + trackHeight - 1, fillColor);
-         int handleX = x + 50 + fillWidth - 4;
-         int handleSize = 10;
-         float handleScale = 1.0F + hoverProgress * 0.3F;
-         int scaledSize = (int)(handleSize * handleScale * alpha);
-         int handleOffset = (handleSize - scaledSize) / 2;
-         context.fill(
-            handleX + handleOffset,
-            trackY - 2 + handleOffset,
-            handleX + handleOffset + scaledSize,
-            trackY - 2 + handleOffset + scaledSize,
-            (int)(alpha * 255.0F) << 24 | 16777215
-         );
-         if (hoverProgress > 0.0F) {
-            int glowSize = (int)(scaledSize + hoverProgress * 4.0F);
-            int glowOffset = (handleSize - glowSize) / 2;
-            context.fill(
-               handleX + glowOffset,
-               trackY - 2 + glowOffset,
-               handleX + glowOffset + glowSize,
-               trackY - 2 + glowOffset + glowSize,
-               (int)(hoverProgress * alpha * 80.0F) << 24 | this.primaryColor & 16777215
-            );
-         }
-
-         context.drawTextWithShadow(this.textRenderer, Text.literal(String.valueOf(value)), x + width + 10, y + 3, textColor);
-      }
-   }
-
-   private void renderAnimatedColorPreview(DrawContext context, int x, int y, int width, int height, float alpha) {
-      if (!(alpha <= 0.0F)) {
-         int previewColor = this.colorPickerR << 16 | this.colorPickerG << 8 | this.colorPickerB;
-         int displayColor = (int)(alpha * 255.0F) << 24 | previewColor;
-         context.fill(x, y, x + width, y + height, displayColor);
-         this.drawGlowingBorder(context, x, y, width, height, this.primaryColor, alpha);
-         long time = System.currentTimeMillis();
-         float pulse = (float)(Math.sin(time % 2000L / 2000.0 * Math.PI * 2.0) * 0.5 + 0.5);
-         int pulseAlpha = (int)(pulse * alpha * 100.0F);
-         context.fill(x - 2, y - 2, x + width + 2, y, pulseAlpha << 24 | previewColor);
-         context.fill(x - 2, y + height, x + width + 2, y + height + 2, pulseAlpha << 24 | previewColor);
-         context.fill(x - 2, y, x, y + height, pulseAlpha << 24 | previewColor);
-         context.fill(x + width, y, x + width + 2, y + height, pulseAlpha << 24 | previewColor);
-      }
-   }
-
    private void renderAnimatedOverlayParticlesCard(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
       int height = 115;
       this.drawAnimatedCard(context, x, y, width, height, this.secondaryColor, 0.6F, alpha);
@@ -3381,10 +3044,6 @@ public class ClickGuiScreen extends Screen {
             }
          }
       }
-   }
-
-   private boolean needsScrollbar() {
-      return this.getMaxScrollOffset() > 0;
    }
 
    private int getMaxScrollOffset() {
@@ -3997,14 +3656,14 @@ public class ClickGuiScreen extends Screen {
                this.backgroundOpacity = (float)(mx - trackX) / trackWidth;
                this.backgroundOpacity = Math.max(0.0F, Math.min(1.0F, this.backgroundOpacity));
                VoidCyanClient.guiBgOpacity = (int)(this.backgroundOpacity * 255.0F);
-               VoidCyanClient.saveConfig();
+               this.saveOnRelease = true;
                break;
             case "rgbspeed": {
                int speedTrackX = x + 95;
                int speedTrackW = 165;
                float r = Math.max(0.0F, Math.min(1.0F, (float)(mx - speedTrackX) / speedTrackW));
                VoidCyanClient.rgbSpeed = 1 + Math.round(r * 9.0F);
-               VoidCyanClient.saveConfig();
+               this.saveOnRelease = true;
                break;
             }
             case "red": {
@@ -4041,7 +3700,7 @@ public class ClickGuiScreen extends Screen {
                double norm = (mx - sliderBaseX) / sliderW;
                norm = Math.max(0.0, Math.min(1.0, norm));
                VoidCyanClient.guiAnimationDurationMs = (int)(norm * 2000.0);
-               VoidCyanClient.saveConfig();
+               this.saveOnRelease = true;
                break;
             }
             case "scale": {
@@ -4052,7 +3711,7 @@ public class ClickGuiScreen extends Screen {
                float newScale = 0.5F + (float)norm * 1.5F;
                newScale = Math.round(newScale * 10.0F) / 10.0F;
                VoidCyanClient.clickGuiScale = newScale;
-               VoidCyanClient.saveConfig();
+               this.saveOnRelease = true;
                break;
             }
             case "signdist": {
@@ -4061,7 +3720,7 @@ public class ClickGuiScreen extends Screen {
                double norm = (mx - sliderBaseX) / sliderW;
                norm = Math.max(0.0, Math.min(1.0, norm));
                OptimizeManager.signTextDistance = 1 + (int)Math.round(norm * 127.0);
-               VoidCyanClient.saveConfig();
+               this.saveOnRelease = true;
             }
          }
 
@@ -4076,6 +3735,11 @@ public class ClickGuiScreen extends Screen {
       }
       this.draggingSlider = null;
       this.isDraggingScrollbar = false;
+      // Slider drags used to write the config on every mouse move; persist once when the drag ends instead.
+      if (this.saveOnRelease) {
+         this.saveOnRelease = false;
+         VoidCyanClient.saveConfig();
+      }
       return super.mouseReleased(GuiScaleManager.toLogical(click));
    }
 
@@ -4429,60 +4093,6 @@ public class ClickGuiScreen extends Screen {
 
          return false;
       }
-   }
-
-   private boolean handleOverlaysClick(double mouseX, double mouseY, int x, int y, int width) {
-      List<ClickGuiScreen.ModuleInfo> overlayModules = new ArrayList<>();
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Fire", () -> VoidCyanClient.isFireEnabled = !VoidCyanClient.isFireEnabled, VoidCyanClient.isFireEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Portal", () -> VoidCyanClient.isPortalEnabled = !VoidCyanClient.isPortalEnabled, VoidCyanClient.isPortalEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Pumpkin", () -> VoidCyanClient.isPumpkinEnabled = !VoidCyanClient.isPumpkinEnabled, VoidCyanClient.isPumpkinEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo("Hurtcam", () -> VoidCyanClient.isHurtcamEnabled = !VoidCyanClient.isHurtcamEnabled, VoidCyanClient.isHurtcamEnabled)
-      );
-      overlayModules.add(
-         new ClickGuiScreen.ModuleInfo(
-            "Water Fog", () -> VoidCyanClient.isWaterFogEnabled = !VoidCyanClient.isWaterFogEnabled, VoidCyanClient.isWaterFogEnabled
-         )
-      );
-      int cardWidth = (width - 40) / 2;
-      int cardHeight = 70;
-      int currentX = x;
-      int currentY = y + 40;
-      int cardsPerRow = 2;
-      int cardIndex = 0;
-
-      for (ClickGuiScreen.ModuleInfo overlay : overlayModules) {
-         if (mouseX >= currentX && mouseX <= currentX + cardWidth && mouseY >= currentY && mouseY <= currentY + cardHeight) {
-            int switchX = currentX + cardWidth - 60;
-            int switchY = currentY + cardHeight - 23;
-            int switchWidth = 50;
-            int switchHeight = 16;
-            boolean isClickingSwitch = mouseX >= switchX && mouseX <= switchX + switchWidth && mouseY >= switchY && mouseY <= switchY + switchHeight;
-            if (isClickingSwitch) {
-               overlay.toggle.run();
-               overlay.enabled = !overlay.enabled;
-            } else {
-               overlay.toggle.run();
-               overlay.enabled = !overlay.enabled;
-            }
-
-            return true;
-         }
-
-         currentX += cardWidth + 20;
-         if (++cardIndex % cardsPerRow == 0) {
-            currentX = x;
-            currentY += cardHeight + 20;
-         }
-      }
-
-      return false;
    }
 
    private boolean handleGlobalClick(double mouseX, double mouseY, int x, int y, int width) {
@@ -5868,6 +5478,17 @@ public class ClickGuiScreen extends Screen {
          this.originalName = name;
          this.editableName = name.substring(0, name.lastIndexOf(46));
          this.file = new File("screenshots", name);
+      }
+
+      private File sizeOf;
+      private long size;
+
+      long fileSize() {
+         if (this.sizeOf != this.file) {
+            this.sizeOf = this.file;
+            this.size = this.file.exists() ? this.file.length() : 0L;
+         }
+         return this.size;
       }
    }
 }

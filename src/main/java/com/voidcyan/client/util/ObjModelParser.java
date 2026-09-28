@@ -30,12 +30,10 @@ public final class ObjModelParser {
 
    public static final class Result {
       public final List<Tri> tris;
-      public final int vertexCount;
       public final float minX, minY, minZ, maxX, maxY, maxZ;
 
       Result(List<Tri> tris, float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
          this.tris = tris;
-         this.vertexCount = tris.size() * 3;
          this.minX = minX; this.minY = minY; this.minZ = minZ;
          this.maxX = maxX; this.maxY = maxY; this.maxZ = maxZ;
       }

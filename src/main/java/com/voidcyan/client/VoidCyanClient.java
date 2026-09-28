@@ -42,7 +42,6 @@ import com.voidcyan.client.screen.AnimatedTexture;
 import com.voidcyan.client.screen.ClickGuiScreen;
 import com.voidcyan.client.screen.DropdownGuiScreen;
 import com.voidcyan.client.screen.EditHudScreen;
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import com.voidcyan.client.social.FriendManager;
 import com.voidcyan.client.util.NameProtect;
 import com.voidcyan.client.util.NameProtectMappings;
@@ -64,6 +63,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -74,6 +74,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
@@ -123,9 +124,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.sound.SoundEvent;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -149,8 +148,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean guiBgEnabled = false;
    public static boolean editGuiBgEnabled = false;
    public static boolean clickGuiBgEnabled = true;
-   public static boolean customTicksEnabled = false;
-   public static int customTicksValue = 20;
    public static int primaryColorR = 0;
    public static int primaryColorG = 255;
    public static int primaryColorB = 255;
@@ -196,7 +193,6 @@ public class VoidCyanClient implements ClientModInitializer {
    private static boolean comboResetKeyWasPressed = false;
    private static boolean targetHudResetKeyWasPressed = false;
    private static boolean prevFreelookActive = false;
-   private static int lastGuiScale = -1;
    public static boolean freelookToggleMode = false;
    public static boolean freelookShowOwnNametag = false;
    public static boolean freelookActive = false;
@@ -244,12 +240,10 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int allTimeAnchorsCharged = 0;
    public static long allTimePlayTimeTicks = 0L;
    public static final Set<Integer> damageCountedThisTick = new HashSet<>();
-   private static boolean selfTotemEffectsActive = false;
    public static Entity lastAttackedEntity = null;
    public static long lastAttackTime = 0L;
    public static long lastInteractTime = 0L;
    public static BlockPos lastInteractPos = null;
-   private static boolean wasLocalPlayerAlive = true;
    private static boolean wasLocalPlayerDeadLastTick = false;
    private static int saveTicks = 0;
    public static boolean isCustomHitboxEnabled = false;
@@ -324,7 +318,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean isPotionParticlesEnabled = true;
    public static boolean isCriticalParticlesEnabled = true;
    public static boolean isDamageParticlesEnabled = true;
-   public static boolean enableWaterFogColor = true;
    public static OverlayTexture overlayTextureInstance = null;
    private static int hitColorEntityId = -1;
    private static long hitColorUntil = 0L;
@@ -472,7 +465,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int totemTraceColorAlpha = 255;
    public static boolean totemTraceShowColor = true;
    public static boolean totemTraceShowArmor = true;
-   public static boolean totemTraceTrackSelf = false;
    public static boolean totemTraceDetectSelf = true;
    public static boolean totemTraceDetectOthers = true;
    public static int totemPopHealthThreshold = 6;
@@ -485,9 +477,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int playerTrailColorB = 0;
    public static float playerTrailDuration = 5.0F;
    public static int playerTrailAnchor = 1;
-   public static int playerTrailX = 10;
-   public static int playerTrailY = 50;
-   public static float playerTrailScale = 1.0F;
    public static long stopwatchStartedAt = 0L;
    public static long stopwatchElapsedMs = 0L;
    public static boolean isTntTimerEnabled = false;
@@ -676,17 +665,10 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int toggleSprintY = 220;
    public static int toggleSneakX = 10;
    public static int toggleSneakY = 235;
-   private static boolean isDraggingCps = false;
-   private static boolean isDraggingKeystrokes = false;
-   private static boolean isDraggingCompass = false;
-   private static boolean isDraggingArmorStatus = false;
-   private static boolean isDraggingTargetHud = false;
    private static double dragOffsetX = 0.0;
    private static int dragOffsetY = 0;
-   private static boolean[] warnedPieces = new boolean[]{false, false, false, false};
    private static int[] lastDurability = new int[]{-1, -1, -1, -1};
    private static final WeakHashMap<LivingEntity, Float> entityHealthMap = new WeakHashMap<>();
-   private static final Map<Integer, Boolean> playerHadTotemMap = new HashMap<>();
    public static final List<Long> leftClickTimestamps = new ArrayList<>();
    public static final List<Long> rightClickTimestamps = new ArrayList<>();
    private static boolean wasLeftMouseDown = false;
@@ -698,8 +680,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static String nickHiderReplacementName = "Hidden";
    public static boolean nickHiderUseCustomColor = false;
    public static int nickHiderColor = 16733695;
-   public static boolean nickHiderObfuscateFriends = false;
-   public static boolean nickHiderObfuscateOthers = false;
    public static boolean isPeerNickEnabled = false;
    public static List<String> friends = new ArrayList<>();
    public static boolean isFriendGreenNameTagsEnabled = false;
@@ -1089,12 +1069,22 @@ public class VoidCyanClient implements ClientModInitializer {
       saveConfig();
    }
 
+   private static long rainbowPrimaryAt = -1L;
+   private static int rainbowPrimarySpeed;
+   private static int rainbowPrimary;
+
+   // Called dozens of times per frame; the rainbow value only depends on the current millisecond and speed, so memoize it.
    public static int getPrimaryColor() {
       if (rgbChromaEnabled || "Rainbow".equalsIgnoreCase(colorTheme)) {
-         float speed = Math.max(1, rgbSpeed) * 0.15F;
-         float hue = (float)((System.currentTimeMillis() * speed) % 3600.0) / 3600.0F;
-         int rgb = java.awt.Color.HSBtoRGB(hue, 0.85F, 1.0F);
-         return 0xFF000000 | (rgb & 0x00FFFFFF);
+         long now = System.currentTimeMillis();
+         if (now != rainbowPrimaryAt || rgbSpeed != rainbowPrimarySpeed) {
+            float speed = Math.max(1, rgbSpeed) * 0.15F;
+            float hue = (float)((now * speed) % 3600.0) / 3600.0F;
+            rainbowPrimary = 0xFF000000 | (java.awt.Color.HSBtoRGB(hue, 0.85F, 1.0F) & 0x00FFFFFF);
+            rainbowPrimaryAt = now;
+            rainbowPrimarySpeed = rgbSpeed;
+         }
+         return rainbowPrimary;
       }
       return 0xFF000000 | primaryColorR << 16 | primaryColorG << 8 | primaryColorB;
    }
@@ -1124,25 +1114,21 @@ public class VoidCyanClient implements ClientModInitializer {
       }
    }
 
-   public static VoidCyanClient.ViewModelSettings getOrCreateMainHandOverride(String itemId) {
-      return mainHandItemOverrides.computeIfAbsent(itemId, k -> new VoidCyanClient.ViewModelSettings());
-   }
-
-   public static VoidCyanClient.ViewModelSettings getOrCreateOffHandOverride(String itemId) {
-      return offHandItemOverrides.computeIfAbsent(itemId, k -> new VoidCyanClient.ViewModelSettings());
-   }
-
    public static void updateHitColorTexture() {
       if (isHitColorEnabled) {
-         int a = MathHelper.clamp(hitColorAlpha, 0, 255);
-         int r = MathHelper.clamp(hitColorRed, 0, 255);
-         int g = MathHelper.clamp(hitColorGreen, 0, 255);
-         int b = MathHelper.clamp(hitColorBlue, 0, 255);
-         writeOverlayRow3(a << 24 | r << 16 | g << 8 | b);
+         writeHitColorToTexture();
       } else {
-         writeOverlayRow3(-65536);
+         writeVanillaRedToTexture();
       }
    }
+
+   private static int clampedArgb(int a, int r, int g, int b) {
+      return MathHelper.clamp(a, 0, 255) << 24 | MathHelper.clamp(r, 0, 255) << 16 | MathHelper.clamp(g, 0, 255) << 8 | MathHelper.clamp(b, 0, 255);
+   }
+
+   // Row 3 is rewritten per entity per frame; skip the GPU upload when the colour hasn't changed.
+   private static NativeImageBackedTexture lastOverlayTexture;
+   private static int lastOverlayArgb;
 
    private static void writeOverlayRow3(int argbColor) {
       if (overlayTextureInstance != null) {
@@ -1153,7 +1139,7 @@ public class VoidCyanClient implements ClientModInitializer {
             }
 
             NativeImage image = texture.getImage();
-            if (image == null) {
+            if (image == null || texture == lastOverlayTexture && argbColor == lastOverlayArgb) {
                return;
             }
 
@@ -1162,7 +1148,9 @@ public class VoidCyanClient implements ClientModInitializer {
             }
 
             texture.upload();
-         } catch (Exception var4) {
+            lastOverlayTexture = texture;
+            lastOverlayArgb = argbColor;
+         } catch (Exception ignored) {
          }
       }
    }
@@ -1195,51 +1183,16 @@ public class VoidCyanClient implements ClientModInitializer {
          if (client.player != null) {
             boolean isSelf = entity.getId() == client.player.getId();
             boolean isPlayer = entity instanceof PlayerEntity;
-            System.out
-               .println(
-                  "[VoidCyan] flashDamageColor called - isSelf: "
-                     + isSelf
-                     + " isPlayer: "
-                     + isPlayer
-                     + " applyToSelf: "
-                     + damageColorApplyToSelf
-                     + " applyToPlayers: "
-                     + damageColorApplyToPlayers
-                     + " applyToEntities: "
-                     + damageColorApplyToEntities
-               );
-            if (!isSelf || damageColorApplyToSelf) {
-               if (isSelf || !isPlayer || damageColorApplyToPlayers) {
-                  if (isSelf || isPlayer || damageColorApplyToEntities) {
-                     damageColorEntityId = entity.getId();
-                     damageColorUntil = System.currentTimeMillis() + damageColorDuration * 50;
-                     System.out.println("[VoidCyan] Damage color set for entity ID: " + damageColorEntityId + " until: " + damageColorUntil);
-                  }
-               }
+            if ((!isSelf || damageColorApplyToSelf) && (isSelf || !isPlayer || damageColorApplyToPlayers) && (isSelf || isPlayer || damageColorApplyToEntities)) {
+               damageColorEntityId = entity.getId();
+               damageColorUntil = System.currentTimeMillis() + damageColorDuration * 50;
             }
          }
       }
    }
 
    public static boolean shouldApplyDamageColor(int entityId) {
-      boolean result = isDamageColorEnabled && entityId == damageColorEntityId && System.currentTimeMillis() < damageColorUntil;
-      if (entityId == damageColorEntityId) {
-         System.out
-            .println(
-               "[VoidCyan] shouldApplyDamageColor check - entityId: "
-                  + entityId
-                  + " enabled: "
-                  + isDamageColorEnabled
-                  + " match: "
-                  + (entityId == damageColorEntityId)
-                  + " timeLeft: "
-                  + (damageColorUntil - System.currentTimeMillis())
-                  + " result: "
-                  + result
-            );
-      }
-
-      return result;
+      return isDamageColorEnabled && entityId == damageColorEntityId && System.currentTimeMillis() < damageColorUntil;
    }
 
    public static void writeVanillaRedToTexture() {
@@ -1247,35 +1200,15 @@ public class VoidCyanClient implements ClientModInitializer {
    }
 
    public static void writeHitColorToTexture() {
-      int a = MathHelper.clamp(hitColorAlpha, 0, 255);
-      int r = MathHelper.clamp(hitColorRed, 0, 255);
-      int g = MathHelper.clamp(hitColorGreen, 0, 255);
-      int b = MathHelper.clamp(hitColorBlue, 0, 255);
-      writeOverlayRow3(a << 24 | r << 16 | g << 8 | b);
+      writeOverlayRow3(clampedArgb(hitColorAlpha, hitColorRed, hitColorGreen, hitColorBlue));
    }
 
    public static void writeTotemPopColorToTexture() {
-      int a = MathHelper.clamp(totemPopColorAlpha, 0, 255);
-      int r = MathHelper.clamp(totemPopColorRed, 0, 255);
-      int g = MathHelper.clamp(totemPopColorGreen, 0, 255);
-      int b = MathHelper.clamp(totemPopColorBlue, 0, 255);
-      writeOverlayRow3(a << 24 | r << 16 | g << 8 | b);
+      writeOverlayRow3(clampedArgb(totemPopColorAlpha, totemPopColorRed, totemPopColorGreen, totemPopColorBlue));
    }
 
    public static void writeDamageColorToTexture() {
-      int a = MathHelper.clamp(damageColorAlpha, 0, 255);
-      int r = MathHelper.clamp(damageColorRed, 0, 255);
-      int g = MathHelper.clamp(damageColorGreen, 0, 255);
-      int b = MathHelper.clamp(damageColorBlue, 0, 255);
-      writeOverlayRow3(a << 24 | r << 16 | g << 8 | b);
-   }
-
-   public static int getHitColor() {
-      int a = MathHelper.clamp(hitColorAlpha, 0, 255);
-      int r = MathHelper.clamp(hitColorRed, 0, 255);
-      int g = MathHelper.clamp(hitColorGreen, 0, 255);
-      int b = MathHelper.clamp(hitColorBlue, 0, 255);
-      return a << 24 | r << 16 | g << 8 | b;
+      writeOverlayRow3(clampedArgb(damageColorAlpha, damageColorRed, damageColorGreen, damageColorBlue));
    }
 
    public static void onHitColorChanged() {
@@ -1287,32 +1220,31 @@ public class VoidCyanClient implements ClientModInitializer {
    }
 
    public static int getTotemTraceColor() {
-      int a = Math.clamp((long)totemTraceColorAlpha, 0, 255);
-      int r = Math.clamp((long)totemTraceColorRed, 0, 255);
-      int g = Math.clamp((long)totemTraceColorGreen, 0, 255);
-      int b = Math.clamp((long)totemTraceColorBlue, 0, 255);
-      return a << 24 | r << 16 | g << 8 | b;
+      return clampedArgb(totemTraceColorAlpha, totemTraceColorRed, totemTraceColorGreen, totemTraceColorBlue);
    }
+
+   private static String bigItemsParsedSource;
+   private static String[] bigItemsParsed = new String[0];
 
    public static boolean isBigItem(ItemStack stack) {
       if (isBigItemsEnabled && stack != null && !stack.isEmpty() && bigItemsItemIds != null) {
-         Identifier itemId = Registries.ITEM.getId(stack.getItem());
-         String actualId = itemId.toString();
-         String actualPath = itemId.getPath();
+         // Re-split only when the setting string changes (this runs per item entity per frame).
+         if (bigItemsItemIds != bigItemsParsedSource) {
+            bigItemsParsed = Arrays.stream(bigItemsItemIds.split("[\\s,;]+")).map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
+            bigItemsParsedSource = bigItemsItemIds;
+         }
 
-         for (String requestedId : bigItemsItemIds.split("[\\s,;]+")) {
-            String req = requestedId.trim();
-            if (req.isEmpty()) continue;
-            // accept both "minecraft:golden_apple" and bare "golden_apple"
+         Identifier itemId = Registries.ITEM.getId(stack.getItem());
+         String actualPath = itemId.getPath();
+         String actualId = itemId.toString();
+         // accept both "minecraft:golden_apple" and bare "golden_apple"
+         for (String req : bigItemsParsed) {
             if (actualId.equalsIgnoreCase(req) || actualPath.equalsIgnoreCase(req)) {
                return true;
             }
          }
-
-         return false;
-      } else {
-         return false;
       }
+      return false;
    }
 
    public static List<String> getNamedConfigNames() {
@@ -2798,46 +2730,6 @@ public class VoidCyanClient implements ClientModInitializer {
       }
    }
 
-   public static Text getHeartsText(PlayerEntity player) {
-      float health = player.getHealth();
-      float maxHealth = player.getMaxHealth();
-      int healthInt = (int)Math.ceil(health);
-      float pct = health / maxHealth;
-      Formatting color;
-      if (pct > 0.75F) {
-         color = Formatting.GREEN;
-      } else if (pct > 0.5F) {
-         color = Formatting.YELLOW;
-      } else if (pct > 0.25F) {
-         color = Formatting.GOLD;
-      } else {
-         color = Formatting.RED;
-      }
-
-      MutableText heart = Text.literal("❤ ").formatted(Formatting.RED);
-      MutableText hp = Text.literal(String.valueOf(healthInt)).formatted(color);
-      return heart.append(hp);
-   }
-
-   public static Text getBarText(PlayerEntity player) {
-      float health = player.getHealth();
-      float maxHealth = player.getMaxHealth();
-      float pct = Math.max(0.0F, Math.min(1.0F, health / maxHealth));
-      int totalSegments = 40;
-      int activeSegments = Math.round(pct * totalSegments);
-      int graySegments = totalSegments - activeSegments;
-      MutableText bar = Text.empty();
-      if (activeSegments > 0) {
-         bar.append(Text.literal("█".repeat(activeSegments)).formatted(Formatting.AQUA));
-      }
-
-      if (graySegments > 0) {
-         bar.append(Text.literal("█".repeat(graySegments)).formatted(Formatting.DARK_GRAY));
-      }
-
-      return bar;
-   }
-
    public static PlayerEntity findTargetPlayer(int id, String name) {
       MinecraftClient client = MinecraftClient.getInstance();
       if (client.world == null) {
@@ -2847,8 +2739,21 @@ public class VoidCyanClient implements ClientModInitializer {
       }
    }
 
-   public static Text getCombinedText(PlayerEntity player, Text originalName) {
-      return originalName;
+   private static List<String> friendPatternSource = List.of();
+   private static Pattern[] friendPatterns = new Pattern[0];
+
+   /** True if any friend name appears as a whole word in {@code text}; patterns are rebuilt only when the friend list changes. */
+   public static boolean mentionsFriend(String text) {
+      if (!friends.equals(friendPatternSource)) {
+         friendPatternSource = new ArrayList<>(friends);
+         friendPatterns = friendPatternSource.stream().map(f -> Pattern.compile(".*\\b" + Pattern.quote(f) + "\\b.*")).toArray(Pattern[]::new);
+      }
+      for (Pattern pattern : friendPatterns) {
+         if (pattern.matcher(text).matches()) {
+            return true;
+         }
+      }
+      return false;
    }
 
    public void onInitializeClient() {
@@ -2889,8 +2794,6 @@ public class VoidCyanClient implements ClientModInitializer {
          sessionAnchorsCharged = 0;
          sessionPlayTimeTicks = 0L;
          entityHealthMap.clear();
-         selfTotemEffectsActive = false;
-         wasLocalPlayerAlive = true;
          WaypointManager.onServerJoin(client, handler);
          if (isCustomF3Enabled) {
             CustomF3Manager.syncAllToVanillaProfile(client);
@@ -3228,7 +3131,6 @@ public class VoidCyanClient implements ClientModInitializer {
                if (lastHealth != null && currentHealth < lastHealth) {
                   float damage = lastHealth - currentHealth;
                   if (isDamageHeartsEnabled) {
-                     System.out.println("[DamageHearts] Health dropped for " + living.getName().getString() + " by " + damage);
                      DamageHeartsModule.onEntityDamaged(living, damage, null);
                   }
 
@@ -3635,7 +3537,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static void renderFpsCounter(DrawContext context) {
       if (isFpsCounterEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             if (shouldUpdateHudValues()) {
                int fps = FpsGraphManager.currentFps > 0 ? FpsGraphManager.currentFps : client.getCurrentFps();
                cachedFpsText = "FPS: " + fps;
@@ -3657,7 +3559,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isCoordinatesEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                if (shouldUpdateHudValues()) {
                   int playerX = (int)client.player.getX();
                   int playerY = (int)client.player.getY();
@@ -3707,7 +3609,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static void renderCps(DrawContext context) {
       if (isCpsEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             int x = 0;
             int y = 0;
             long currentTime = System.currentTimeMillis();
@@ -3741,7 +3643,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static void renderKeystrokes(DrawContext context) {
       if (isKeystrokesEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             KeystrokesModes.render(context, keystrokesMode);
          }
       }
@@ -3751,7 +3653,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isInvHudEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                int startX = 0;
                int startY = 0;
                int borderThickness = invHudBorderThickness;
@@ -3818,7 +3720,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isCompassEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                int x = 0;
                int y = 0;
                float yaw = client.player.getYaw();
@@ -3896,7 +3798,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isArmorStatusEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                int x = 0;
                int y = 0;
                int[] armorSlots = new int[]{3, 2, 1, 0};
@@ -4213,7 +4115,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static void renderStatsHud(DrawContext context) {
       if (isStatsHudEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             int x = 0;
             int y = 0;
             int lineHeight = 10;
@@ -4397,7 +4299,7 @@ public class VoidCyanClient implements ClientModInitializer {
             currentCombo = 0;
          } else {
             MinecraftClient client = MinecraftClient.getInstance();
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                float timeSinceHit = (float)(System.currentTimeMillis() - lastComboHitTime);
                float scale = 1.0F;
                if (timeSinceHit < 200.0F) {
@@ -4468,7 +4370,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static void renderPingDisplay(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
       if (client.player != null && client.getNetworkHandler() != null) {
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             PlayerListEntry entry = client.getNetworkHandler().getPlayerListEntry(client.player.getUuid());
             if (entry == null) {
                for (PlayerListEntry e : client.getNetworkHandler().getPlayerList()) {
@@ -4521,7 +4423,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isReachDisplayEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                if (System.currentTimeMillis() - lastReachTime <= 3000L) {
                   String reachText = String.format("Reach: %.2f", lastReachDistance);
                   int textWidth = client.textRenderer.getWidth(reachText);
@@ -4541,7 +4443,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isSpeedDisplayEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                double dx = client.player.getVelocity().x;
                double dz = client.player.getVelocity().z;
                double speed = Math.sqrt(dx * dx + dz * dz) * 20.0;
@@ -4562,7 +4464,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isBiomeDisplayEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null && client.world != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                BlockPos pos = client.player.getBlockPos();
                RegistryEntry<Biome> biomeEntry = client.world.getBiome(pos);
                String biomeName = biomeEntry.getKey().map(key -> key.getValue().getPath()).orElse("unknown");
@@ -4625,7 +4527,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isEntityCounterEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null && client.world != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen || client.currentScreen instanceof EditHudScreen) {
+            if (client.currentScreen == null || client.currentScreen instanceof EditHudScreen) {
                int players = 0;
                int hostile = 0;
                int animals = 0;
@@ -4700,19 +4602,21 @@ public class VoidCyanClient implements ClientModInitializer {
       }
    }
 
+   private static final DateTimeFormatter CLOCK_24H = DateTimeFormatter.ofPattern("HH:mm:ss");
+   private static final DateTimeFormatter CLOCK_12H = DateTimeFormatter.ofPattern("hh:mm:ss a");
+   private static final DateTimeFormatter CLOCK_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+   public static String irlClockText() {
+      String text = "Time: " + LocalTime.now().format(isIrlClock24Hour ? CLOCK_24H : CLOCK_12H);
+      return isIrlDateEnabled ? LocalDate.now().format(CLOCK_DATE) + " " + text : text;
+   }
+
    public static void renderIrlClock(DrawContext context) {
       if (isIrlClockEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
-               LocalTime time = LocalTime.now();
-               DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(isIrlClock24Hour ? "HH:mm:ss" : "hh:mm:ss a");
-               String text = "Time: " + time.format(timeFormatter);
-               if (isIrlDateEnabled) {
-                  LocalDate date = LocalDate.now();
-                  DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                  text = date.format(dateFormatter) + " " + text;
-               }
+            if (client.currentScreen == null) {
+               String text = irlClockText();
 
                int textWidth = client.textRenderer.getWidth(text);
                float scale = irlClockScale;
@@ -4733,7 +4637,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isTotemCounterEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                int totems = 0;
 
                for (int i = 0; i < client.player.getInventory().size(); i++) {
@@ -4759,7 +4663,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isArrowCounterEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                int arrows = 0;
 
                for (int i = 0; i < client.player.getInventory().size(); i++) {
@@ -4784,7 +4688,7 @@ public class VoidCyanClient implements ClientModInitializer {
 
    public static void renderPackDisplay(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+      if (client.currentScreen == null) {
          Collection<String> enabledPacks = client.getResourcePackManager().getEnabledIds();
          List<String> displayPacks = new ArrayList<>();
 
@@ -4845,7 +4749,7 @@ public class VoidCyanClient implements ClientModInitializer {
 
    public static void renderTpsDisplay(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+      if (client.currentScreen == null) {
          String tpsText = String.format("TPS: %.1f", currentTps);
          int textWidth = client.textRenderer.getWidth(tpsText);
          int color = -11141291;
@@ -4926,7 +4830,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static void renderWaypointHud(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
       if (client.player != null && client.world != null) {
-         if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+         if (client.currentScreen == null) {
             List<WaypointManager.Waypoint> waypoints = WaypointManager.waypoints;
             if (!waypoints.isEmpty()) {
                String currentDim = client.world.getRegistryKey().getValue().getPath();
@@ -4982,7 +4886,7 @@ public class VoidCyanClient implements ClientModInitializer {
       if (isChatHeadsEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null && client.world != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                ClientPlayNetworkHandler networkHandler = client.getNetworkHandler();
                if (networkHandler != null) {
                   List<PlayerEntity> players = client.world

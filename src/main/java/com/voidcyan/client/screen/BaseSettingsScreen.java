@@ -23,12 +23,6 @@ public abstract class BaseSettingsScreen extends Screen {
    private BaseSettingsScreen.SettingEntry<?> listeningKeybind = null;
    private float scrollOffset = 0.0F;
    private float scrollTarget = 0.0F;
-   private static final int ITEM_H = 36;
-   private static final int PANEL_W = 350;
-   private static final int HEADER_H = 34;
-   private static final int FOOTER_H = 18;
-   private static final int TRACK_H = 6;
-   private static final int HANDLE_R = 4;
 
    protected BaseSettingsScreen(Screen parent, String title) {
       super(Text.literal(title));

@@ -19,8 +19,6 @@ import net.minecraft.util.shape.VoxelShapes;
 
 public class HitboxRenderer {
    private static float crystalAlphaProgress = 0.0F;
-   private static final float CRYSTAL_APPEAR_SPEED = 0.18F;
-   private static final float CRYSTAL_DISMISS_SPEED = 0.1F;
 
    public static void renderAll(WorldRenderContext context) {
       MinecraftClient client = MinecraftClient.getInstance();

@@ -56,8 +56,9 @@ public class NameTagItemsRenderer {
 
             if (!isSelf && VoidCyanClient.nameTagItemsOnlyFriends) {
                 boolean isFriend = false;
+                String name = player.getName().getString();
                 for (String f : VoidCyanClient.friends) {
-                    if (player.getName().getString().equalsIgnoreCase(f.trim())) {
+                    if (name.equalsIgnoreCase(f.trim())) {
                         isFriend = true;
                         break;
                     }

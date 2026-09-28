@@ -58,7 +58,16 @@ public class BigHeadMixin {
          return false;
       } else {
          boolean isSelf = player == client.player;
-         boolean isFriend = !isSelf && VoidCyanClient.friends.stream().anyMatch(f -> player.getName().getString().equalsIgnoreCase(f));
+         boolean isFriend = false;
+         if (!isSelf && !VoidCyanClient.friends.isEmpty()) {
+            String name = player.getName().getString();
+            for (String friend : VoidCyanClient.friends) {
+               if (name.equalsIgnoreCase(friend)) {
+                  isFriend = true;
+                  break;
+               }
+            }
+         }
          boolean isOther = !isSelf && !isFriend;
          if (isSelf && !VoidCyanClient.bigHeadSelf) {
             return false;

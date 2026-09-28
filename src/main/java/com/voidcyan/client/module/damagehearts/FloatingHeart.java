@@ -12,7 +12,6 @@ public class FloatingHeart {
    public boolean isCrit;
    public long spawnTime;
    public float lifetime;
-   public float maxLifetime;
    public float damage;
 
    public FloatingHeart(Vec3d position, float hearts, int color, boolean isCrit) {
@@ -29,7 +28,6 @@ public class FloatingHeart {
       this.isCrit = isCrit;
       this.spawnTime = System.currentTimeMillis();
       this.lifetime = 1200.0F + hearts * 300.0F;
-      this.maxLifetime = this.lifetime;
    }
 
    public void update(float deltaTime) {

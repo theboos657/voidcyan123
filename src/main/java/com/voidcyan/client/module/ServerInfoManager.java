@@ -1,6 +1,5 @@
 package com.voidcyan.client.module;
 
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import net.minecraft.client.MinecraftClient;
@@ -10,8 +9,6 @@ import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.text.Text;
 
 public final class ServerInfoManager {
-   private static final int PAD = 5;
-   private static final int LINE_H = 12;
 
    private ServerInfoManager() {
    }
@@ -88,7 +85,7 @@ public final class ServerInfoManager {
 
    public static void render(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+      if (client.currentScreen == null) {
          drawPanel(context, client, 0, 0, false);
       }
    }

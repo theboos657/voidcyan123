@@ -21,7 +21,6 @@ public final class TotemTraceManager {
    private static final Map<GhostPlayerEntity, Long> ghostExpiryTimes = new ConcurrentHashMap<>();
    private static final Map<GhostPlayerEntity, Integer> ghostColors = new ConcurrentHashMap<>();
    private static final Map<UUID, Long> lastTraceTimes = new ConcurrentHashMap<>();
-   private static final long TRACE_DEDUPLICATION_MS = 750L;
 
    private TotemTraceManager() {
    }

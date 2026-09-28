@@ -22,7 +22,6 @@ public class DamageListenerMixin {
          if (client.world != null) {
             float currentHealth = entity.getHealth();
             if (health < currentHealth && VoidCyanClient.isDamageColorEnabled) {
-               System.out.println("[VoidCyan] Damage detected! Entity: " + entity.getName().getString() + " Health: " + currentHealth + " -> " + health);
                VoidCyanClient.flashDamageColor(entity);
             }
 

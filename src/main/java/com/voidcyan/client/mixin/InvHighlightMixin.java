@@ -1,6 +1,7 @@
 package com.voidcyan.client.mixin;
 
 import com.voidcyan.client.VoidCyanClient;
+import java.util.Arrays;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
@@ -8,12 +9,18 @@ import net.minecraft.registry.Registries;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin({HandledScreen.class})
 public class InvHighlightMixin {
+   @Unique
+   private static String voidcyan$parsedSource;
+   @Unique
+   private static String[] voidcyan$parsedItems = new String[0];
+
    @Inject(
       method = {"drawSlot"},
       at = {@At("HEAD")}
@@ -27,10 +34,15 @@ public class InvHighlightMixin {
                String itemId = id.toString();
                String configuredItems = VoidCyanClient.invHighlightItems;
                if (configuredItems != null && !configuredItems.isEmpty()) {
-                  boolean match = false;
+                  // Re-split only when the setting changes; this runs for every slot every frame.
+                  if (configuredItems != voidcyan$parsedSource) {
+                     voidcyan$parsedItems = Arrays.stream(configuredItems.split(",")).map(String::trim).toArray(String[]::new);
+                     voidcyan$parsedSource = configuredItems;
+                  }
 
-                  for (String itemId2 : configuredItems.split(",")) {
-                     if (itemId2.trim().equalsIgnoreCase(itemId)) {
+                  boolean match = false;
+                  for (String configured : voidcyan$parsedItems) {
+                     if (configured.equalsIgnoreCase(itemId)) {
                         match = true;
                         break;
                      }

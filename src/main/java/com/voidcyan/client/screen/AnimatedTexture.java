@@ -95,13 +95,11 @@ public final class AnimatedTexture {
          double fps = grabber.getFrameRate();
          this.frameDelayMs = fps > 0.0 ? (long)(1000.0 / fps) : 33L;
          System.err.println("[VoidCyan] Video FPS: " + fps + ", delay: " + this.frameDelayMs + "ms, " + grabber.getImageWidth() + "x" + grabber.getImageHeight());
-         int frameCount = 0;
 
          while (this.running.get()) {
             if (Thread.currentThread().isInterrupted()) break;
             try (Frame frame = grabber.grabImage()) {
                if (frame == null) {
-                  System.err.println("[VoidCyan] End of video reached, looping...");
                   try {
                      grabber.stop();
                      grabber.start();
@@ -116,9 +114,6 @@ public final class AnimatedTexture {
                   while (!this.frameQueue.offer(bimg)) {
                      BufferedImage old = this.frameQueue.poll();
                      if (old != null) old.flush();
-                  }
-                  if (++frameCount % 30 == 0) {
-                     System.err.println("[VoidCyan] Queued frame " + frameCount + ", queue size: " + this.frameQueue.size());
                   }
                }
             }
@@ -164,10 +159,6 @@ public final class AnimatedTexture {
             dst.setColor(x, y, swapRedBlue(src.getRGB(x, y)));
          }
       }
-   }
-
-   public boolean isError() {
-      return this.error;
    }
 
    @Nullable

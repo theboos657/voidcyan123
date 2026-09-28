@@ -1,8 +1,6 @@
 package com.voidcyan.client;
 
 import net.minecraft.block.ShapeContext;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.world.ClientWorld;
@@ -110,17 +108,6 @@ public final class OptimizeManager {
    public static boolean shouldRenderItem(double x, double y, double z) {
       if (!optimizeItems) return true;
       return isBlockVisible(BlockPos.ofFloored(x, y, z));
-   }
-
-   /** Chests (regular, trapped, ender, barrel): visible unless occluded. */
-   public static boolean shouldRenderChest(BlockEntity be) {
-      if (!optimizeChests) return true;
-      if (be == null) return true;
-      BlockEntityType<?> type = be.getType();
-      boolean isChestLike = type == BlockEntityType.CHEST || type == BlockEntityType.TRAPPED_CHEST
-         || type == BlockEntityType.ENDER_CHEST || type == BlockEntityType.BARREL;
-      if (!isChestLike) return true;
-      return isBlockVisible(be.getPos());
    }
 
    /** Chest-type check usable from a render state (no block entity needed). */

@@ -226,17 +226,6 @@ public class StreakManager {
       public int crystalsPlaced = 0;
       public int crystalsBroken = 0;
 
-      public void copyFrom(StreakManager.StreakStats other) {
-         this.kills = other.kills;
-         this.deaths = other.deaths;
-         this.hits = other.hits;
-         this.clicks = other.clicks;
-         this.blocksBroken = other.blocksBroken;
-         this.blocksPlaced = other.blocksPlaced;
-         this.crystalsPlaced = other.crystalsPlaced;
-         this.crystalsBroken = other.crystalsBroken;
-      }
-
       public void subtract(StreakManager.StreakStats start, StreakManager.StreakStats end) {
          this.kills = end.kills - start.kills;
          this.deaths = end.deaths - start.deaths;

@@ -17,9 +17,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 public class PotionStatusRenderer {
-   private static final int SLOT_SIZE = 20;
-   private static final int PADDING = 3;
-   private static final int SLOT_OUTER = 26;
 
    public static void render(DrawContext context) {
       if (VoidCyanClient.isPotionStatusEnabled) {

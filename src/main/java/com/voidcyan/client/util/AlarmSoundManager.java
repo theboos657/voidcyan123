@@ -8,7 +8,6 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
@@ -67,7 +66,20 @@ public class AlarmSoundManager {
       }
    }
 
+   private static String[] cachedOptions;
+   private static long cachedOptionsAt;
+
+   // Settings dropdowns call this several times per frame; rescan the folders at most once a second.
    public static String[] getAlarmOptions() {
+      long now = System.currentTimeMillis();
+      if (cachedOptions == null || now - cachedOptionsAt > 1000L) {
+         cachedOptions = scanAlarmOptions();
+         cachedOptionsAt = now;
+      }
+      return cachedOptions;
+   }
+
+   private static String[] scanAlarmOptions() {
       List<String> list = new ArrayList<>();
       list.add(DEFAULT_SOUND);
 

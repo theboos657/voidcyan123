@@ -1,7 +1,6 @@
 package com.voidcyan.client.module;
 
 import com.voidcyan.client.VoidCyanClient;
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.Entity;
@@ -19,7 +18,7 @@ public final class TntTimerRenderer {
       if (VoidCyanClient.isTntTimerEnabled) {
          MinecraftClient client = MinecraftClient.getInstance();
          if (client.player != null && client.world != null) {
-            if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+            if (client.currentScreen == null) {
                int screenW = client.getWindow().getScaledWidth();
                int screenH = client.getWindow().getScaledHeight();
                Vec3d cameraPos = client.gameRenderer.getCamera().getCameraPos();

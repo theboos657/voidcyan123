@@ -1,6 +1,5 @@
 package com.voidcyan.client.module;
 
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import com.voidcyan.client.util.WaypointManager;
 import java.util.Properties;
 import net.minecraft.block.BlockState;
@@ -14,9 +13,6 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 
 public final class BlockIndicatorManager {
-   public static final int ICON_SIZE = 16;
-   public static final int BOX_HEIGHT = 20;
-   private static final int PAD = 4;
    private static final int GAP = 4;
    public static int maxWidth = 180;
    public static BlockIndicatorManager.IconMode iconMode = BlockIndicatorManager.IconMode.BLOCK;
@@ -175,7 +171,7 @@ public final class BlockIndicatorManager {
             return;
          }
 
-         if (client.currentScreen != null && !(client.currentScreen instanceof VoidCyanMenuScreen)) {
+         if (client.currentScreen != null) {
             return;
          }
       }

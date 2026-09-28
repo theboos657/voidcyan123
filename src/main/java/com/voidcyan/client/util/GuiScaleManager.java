@@ -36,11 +36,6 @@ public final class GuiScaleManager {
       multiplier = VoidCyanClient.clickGuiScale > 0.0F ? VoidCyanClient.clickGuiScale : 1.0F;
    }
 
-   /** The game's GUI Scale factor (from Video Settings / the window). */
-   public static float gameScale() {
-      return gameScaleFactor;
-   }
-
    /** The dedicated Click GUI multiplier applied on top of the game scale. */
    public static float multiplier() {
       return multiplier;

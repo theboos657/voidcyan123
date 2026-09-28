@@ -14,7 +14,6 @@ import net.minecraft.registry.Registries;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 import java.io.File;
@@ -162,13 +161,6 @@ public final class CritEffectsManager {
    public static int getEffectCount() {
       checkReload();
       return EFFECTS.size();
-   }
-
-   public static List<String> getEffectNames() {
-      checkReload();
-      List<String> names = new ArrayList<>(EFFECTS.keySet());
-      names.sort(String.CASE_INSENSITIVE_ORDER);
-      return names;
    }
 
    public static File getEffectsDir() {
@@ -544,9 +536,4 @@ public final class CritEffectsManager {
       return ACTIVE;
    }
 
-   public static void clearModels() {
-      ACTIVE.clear();
-      ObjModel.clearCache();
-      BbModel.clearCache();
-   }
 }

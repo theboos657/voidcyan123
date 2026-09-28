@@ -6,7 +6,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
 public class FpsGraphManager {
-   private static final int HISTORY_SIZE = 30000;
    private static final long[] frameTimeStamps = new long[30000];
    private static final long[] frameDeltas = new long[30000];
    private static int currentIndex = 0;

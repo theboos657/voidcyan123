@@ -1,7 +1,6 @@
 package com.voidcyan.client.mixin;
 
 import com.voidcyan.client.util.NameProtect;
-import net.minecraft.scoreboard.AbstractTeam;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;

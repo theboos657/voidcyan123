@@ -9,12 +9,10 @@
     "WaterFogMixin",
     "MixinEntity",
     "MixinDrawContext",
-    "MixinWorldRenderer",
     "StringVisitableMixin",
     "MixinGameRenderer",
     "ChatHudMixin",
     "MixinPlayerListHud",
-    "MinecraftClientMixin",
     "FreelookMixin",
     "CameraMixin",
     "MixinPlayerListEntry",
@@ -47,8 +45,7 @@
     "OverlayTextureMixin",
     "ScreenHandlerMixin",
     "EntityRenderStateMixin",
-    "EquipmentRendererMixin",
-    "OverlayRenderMixin"
+    "EquipmentRendererMixin"
   ],
   "client": [
     "EntityRendererMixin",

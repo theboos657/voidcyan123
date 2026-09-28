@@ -40,7 +40,4 @@ public class HeartManager {
       return this.hearts;
    }
 
-   public int getHeartCount() {
-      return this.hearts.size();
-   }
 }

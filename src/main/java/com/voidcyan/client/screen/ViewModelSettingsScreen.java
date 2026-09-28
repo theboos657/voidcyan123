@@ -14,33 +14,16 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
 public class ViewModelSettingsScreen extends Screen {
-   private static final int BG = -15658216;
-   private static final int PANEL_BG = -15065819;
-   private static final int ACCENT = -16722774;
-   private static final int ACCENT2 = -8622598;
-   private static final int TEXT_COL = -1512720;
-   private static final int MUTED = -7827288;
-   private static final int DANGER = -1096636;
    private static final int GREEN = -14498466;
-   private static final int SLIDER_BG = -14342096;
-   private static final int SLIDER_FG = -16722774;
-   private static final int SEP = -14012611;
-   private static final int CARD_BG = -14670802;
-   private static final int PANEL_W = 480;
-   private static final int ITEM_H = 34;
-   private static final int SLIDER_H = 28;
-   private static final int TAB_H = 32;
    private final Screen parent;
    private int tab = 0;
    private float scrollOffset = 0.0F;
    private float scrollTarget = 0.0F;
    private int draggingSlot = -1;
-   private boolean draggingItemSlider = false;
    private String draggingItemId = null;
    private int draggingItemSlotIdx = -1;
    private boolean addingItem = false;
    private String addItemText = "";
-   private long addItemBlink = 0L;
    private String expandedItemId = null;
    private long openTime;
 
@@ -426,7 +409,6 @@ public class ViewModelSettingsScreen extends Screen {
       int slW = pw - 110;
       if (mx >= slX && mx <= slX + slW && my >= cy && my <= cy + 28) {
          this.draggingSlot = si;
-         this.draggingItemSlider = false;
          this.applySliderDrag(mx, slX, slW, si, s);
          VoidCyanClient.markConfigDirty();
          return true;

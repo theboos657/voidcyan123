@@ -1,11 +1,8 @@
 package com.voidcyan.client.screen;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 
 /**
  * Shared visual language for the redesigned VoidCyan click GUI:
@@ -236,11 +233,6 @@ public final class GuiStyle {
       roundedRect(context, x, thumbY, 4, thumbH, 2, (int)(a * 0.75F) << 24 | (primaryRgb & 0xFFFFFF));
    }
 
-   /** Maps a mouse x on a slider track back to 0..1. */
-   public static float sliderRatio(double mouseX, int trackX, int trackWidth) {
-      return (float)Math.max(0.0, Math.min(1.0, (mouseX - trackX) / (double)trackWidth));
-   }
-
    public static boolean inRect(double mx, double my, int x, int y, int w, int h) {
       return mx >= x && mx <= x + w && my >= y && my <= y + h;
    }
@@ -257,24 +249,8 @@ public final class GuiStyle {
       return (int)(ar + (br - ar) * t) << 16 | (int)(ag + (bg - ag) * t) << 8 | (int)(ab + (bb - ab) * t);
    }
 
-   /** Player face texture id for the given profile, falling back to a local texture. */
-   public static Identifier playerFace(MinecraftClient client) {
-      Identifier blank = Identifier.of("voidcyan", "textures/gui/white.png");
-      try {
-         if (client.getSkinProvider() != null && client.player != null && client.player.getSkin() != null) {
-            Identifier skinTex = client.player.getSkin().body().id();
-            if (skinTex != null) {
-               return skinTex;
-            }
-         }
-      } catch (Exception ignored) {
-      }
-      return blank;
-   }
-
    // ---- Logo -------------------------------------------------------------------
 
-   public static final Identifier MOD_ICON = Identifier.of("voidcyan_client", "icon.png");
 
    /** Draws the bundled mod logo with a vector fallback so it remains visible at every GUI scale. */
    public static void drawLogo(DrawContext context, int x, int y, int size, int primaryRgb, float alpha) {
@@ -417,67 +393,11 @@ public final class GuiStyle {
    }
 
    // Glyph maps (5 wide)
-   public static final char[][] GLYPH_GRID = {
-      {'#', '#', '#', '#', '#'},
-      {'#', '.', '.', '.', '#'},
-      {'#', '#', '#', '#', '#'},
-      {'#', '.', '.', '.', '#'},
-      {'#', '#', '#', '#', '#'}
-   };
-   public static final char[][] GLYPH_BOLT = {
-      {'.', '#', '#', '#', '.'},
-      {'.', '#', '#', '.', '.'},
-      {'#', '#', '#', '#', '.'},
-      {'.', '.', '#', '#', '.'},
-      {'.', '#', '#', '.', '.'}
-   };
-   public static final char[][] GLYPH_GEAR = {
-      {'.', '#', '.', '#', '.'},
-      {'#', '#', '#', '#', '#'},
-      {'#', '.', '#', '.', '#'},
-      {'#', '#', '#', '#', '#'},
-      {'.', '#', '.', '#', '.'}
-   };
-   public static final char[][] GLYPH_PALETTE = {
-      {'.', '.', '#', '#', '.'},
-      {'.', '#', '#', '#', '#'},
-      {'#', '#', '.', '#', '#'},
-      {'#', '#', '#', '#', '#'},
-      {'.', '#', '#', '.', '.'}
-   };
-   public static final char[][] GLYPH_CLOSE = {
-      {'#', '.', '.', '.', '#'},
-      {'.', '#', '.', '#', '.'},
-      {'.', '.', '#', '.', '.'},
-      {'.', '#', '.', '#', '.'},
-      {'#', '.', '.', '.', '#'}
-   };
-   public static final char[][] GLYPH_CHEVRON_DOWN = {
-      {'#', '#', '#', '#', '#'},
-      {'.', '#', '#', '#', '.'},
-      {'.', '.', '#', '.', '.'},
-      {'.', '#', '#', '#', '.'},
-      {'#', '#', '#', '#', '#'}
-   };
    public static final char[][] GLYPH_SEARCH = {
       {'.', '#', '#', '#', '.'},
       {'#', '.', '.', '.', '#'},
       {'#', '.', '.', '.', '#'},
       {'#', '.', '.', '.', '#'},
       {'.', '#', '.', '.', '.'}
-   };
-   public static final char[][] GLYPH_SORT = {
-      {'#', '.', '#', '.', '#'},
-      {'#', '.', '#', '.', '#'},
-      {'.', '#', '.', '#', '.'},
-      {'.', '#', '.', '#', '.'},
-      {'.', '.', '#', '.', '.'}
-   };
-   public static final char[][] GLYPH_FILTER = {
-      {'#', '#', '#', '#', '#'},
-      {'.', '.', '#', '.', '.'},
-      {'.', '.', '#', '.', '.'},
-      {'.', '.', '.', '.', '.'},
-      {'.', '.', '.', '.', '.'}
    };
 }

@@ -32,24 +32,17 @@ public class DamageHeartsModule {
    public static boolean rainbowMode = false;
    public static int normalColor = -65536;
    public static int explosionColor = -5635841;
-   public static int critColor = -256;
    public static int magicColor = -16711681;
    public static int poisonColor = -16711936;
    public static boolean showNumeric = false;
    public static int combineDelayMs = 150;
-   public static int maxHeartsRendered = 200;
    public static boolean goldenHeartsMode = true;
    private static long lastDamageTime = 0L;
    private static float combinedDamage = 0.0F;
    private static LivingEntity lastDamagedEntity = null;
 
    public static void onEntityDamaged(LivingEntity entity, float damage, DamageSource source) {
-      if (!isEnabled) {
-         System.out.println("[DamageHearts] onEntityDamaged: Module is DISABLED");
-      } else if (!shouldRenderForEntity(entity)) {
-         System.out.println("[DamageHearts] onEntityDamaged: Entity ignored: " + entity.getName().getString());
-      } else {
-         System.out.println("[DamageHearts] Processing damage for " + entity.getName().getString() + " amount: " + damage);
+      if (isEnabled && shouldRenderForEntity(entity)) {
          long now = System.currentTimeMillis();
          if (lastDamagedEntity == entity && now - lastDamageTime < combineDelayMs) {
             combinedDamage += damage;
@@ -93,7 +86,6 @@ public class DamageHeartsModule {
          Vec3d offset = new Vec3d((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.3);
          FloatingHeart heart = new FloatingHeart(spawnPos.add(offset), 1.0F, color, isCrit);
          heart.lifetime = lifetime * 1000.0F;
-         heart.maxLifetime = heart.lifetime;
          heartManager.addHeart(heart);
       }
 
@@ -102,7 +94,6 @@ public class DamageHeartsModule {
          FloatingHeart heart = new FloatingHeart(spawnPos.add(offset), fractionalHeart, color, isCrit);
          heart.scale *= fractionalHeart;
          heart.lifetime = lifetime * 1000.0F;
-         heart.maxLifetime = heart.lifetime;
          heartManager.addHeart(heart);
       }
    }

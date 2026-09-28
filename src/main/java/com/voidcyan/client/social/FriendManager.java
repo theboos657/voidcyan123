@@ -3,9 +3,7 @@ package com.voidcyan.client.social;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.client.MinecraftClient;
@@ -18,33 +16,6 @@ public class FriendManager {
 
    public static void init() {
       loadFriends();
-   }
-
-   public static boolean addFriend(String username) {
-      if (username != null && !username.isBlank()) {
-         String name = username.trim();
-
-         for (String f : friends) {
-            if (f.equalsIgnoreCase(name)) {
-               return false;
-            }
-         }
-
-         friends.add(name);
-         saveFriends();
-         return true;
-      } else {
-         return false;
-      }
-   }
-
-   public static boolean removeFriend(String username) {
-      boolean removed = friends.removeIf(f -> f.equalsIgnoreCase(username));
-      if (removed) {
-         saveFriends();
-      }
-
-      return removed;
    }
 
    public static boolean isFriendOnline(String username) {
@@ -76,13 +47,4 @@ public class FriendManager {
       }
    }
 
-   public static void saveFriends() {
-      try (PrintWriter writer = new PrintWriter(new FileWriter(getFriendsFile()))) {
-         for (String friend : friends) {
-            writer.println(friend);
-         }
-      } catch (IOException var5) {
-         LOGGER.error("Failed to save friends", var5);
-      }
-   }
 }

@@ -1,14 +1,12 @@
 package com.voidcyan.client.module;
 
 import com.voidcyan.client.VoidCyanClient;
-import com.voidcyan.client.screen.VoidCyanMenuScreen;
 import java.util.Properties;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
 public final class StopwatchManager {
-   private static final int PAD = 5;
 
    private StopwatchManager() {
    }
@@ -28,13 +26,6 @@ public final class StopwatchManager {
          VoidCyanClient.stopwatchRunning = true;
       }
 
-      VoidCyanClient.saveConfig();
-   }
-
-   public static void reset() {
-      VoidCyanClient.stopwatchRunning = false;
-      VoidCyanClient.stopwatchElapsedMs = 0L;
-      VoidCyanClient.stopwatchStartedAt = 0L;
       VoidCyanClient.saveConfig();
    }
 
@@ -77,7 +68,7 @@ public final class StopwatchManager {
 
    public static void render(DrawContext context) {
       MinecraftClient client = MinecraftClient.getInstance();
-      if (client.currentScreen == null || client.currentScreen instanceof VoidCyanMenuScreen) {
+      if (client.currentScreen == null) {
          drawPanel(context, client, 0, 0, false);
       }
    }

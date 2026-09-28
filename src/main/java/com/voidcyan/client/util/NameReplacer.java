@@ -10,6 +10,19 @@ import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableTextContent;
 
 public class NameReplacer {
+   private record CompiledTarget(String target, Pattern pattern) {}
+
+   private static volatile CompiledTarget compiled = new CompiledTarget("", Pattern.compile(""));
+
+   private static Pattern targetPattern(String target) {
+      CompiledTarget current = compiled;
+      if (!current.target().equals(target)) {
+         current = new CompiledTarget(target, Pattern.compile("(?i)\\b" + Pattern.quote(target) + "\\b"));
+         compiled = current;
+      }
+      return current.pattern();
+   }
+
    public static String getTargetName() {
       if (VoidCyanClient.nickHiderTargetName != null && !VoidCyanClient.nickHiderTargetName.trim().isEmpty()) {
          return VoidCyanClient.nickHiderTargetName.trim();
@@ -44,7 +57,7 @@ public class NameReplacer {
          return replacementName;
       }
       if (original.contains(targetName)) {
-         return original.replaceAll("(?i)\\b" + Pattern.quote(targetName) + "\\b", Matcher.quoteReplacement(replacementName));
+         return targetPattern(targetName).matcher(original).replaceAll(Matcher.quoteReplacement(replacementName));
       }
       return original;
    }
@@ -67,10 +80,11 @@ public class NameReplacer {
 
    private static Text rebuildText(Text text, String target, String replacement) {
       String quotedReplacement = Matcher.quoteReplacement(replacement);
+      Pattern pattern = targetPattern(target);
       MutableText newText;
       if (text.getContent() instanceof PlainTextContent plain) {
          String originalStr = plain.string();
-         String replacedStr = originalStr.replaceAll("(?i)\\b" + Pattern.quote(target) + "\\b", quotedReplacement);
+         String replacedStr = pattern.matcher(originalStr).replaceAll(quotedReplacement);
          newText = Text.literal(replacedStr);
       } else if (text.getContent() instanceof TranslatableTextContent trans) {
          Object[] args = trans.getArgs();
@@ -80,7 +94,7 @@ public class NameReplacer {
             if (args[i] instanceof Text t) {
                newArgs[i] = rebuildText(t, target, replacement);
             } else if (args[i] instanceof String s) {
-               newArgs[i] = s.replaceAll("(?i)\\b" + Pattern.quote(target) + "\\b", quotedReplacement);
+               newArgs[i] = pattern.matcher(s).replaceAll(quotedReplacement);
             } else {
                newArgs[i] = args[i];
             }
