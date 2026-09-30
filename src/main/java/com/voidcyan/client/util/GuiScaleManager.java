@@ -21,6 +21,8 @@ import net.minecraft.client.input.MouseInput;
 public final class GuiScaleManager {
    private static float gameScaleFactor = 1.0F;
    private static float multiplier = 1.0F;
+   private static final float LOGICAL_W = 520.0F;
+   private static final float LOGICAL_H = 292.0F;
 
    private GuiScaleManager() {
    }

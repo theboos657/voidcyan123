@@ -137,6 +137,7 @@ public class ArrayListManager {
       MODULES.add(new ArrayListManager.ModuleEntry("Watermark", () -> VoidCyanClient.isWatermarkEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("ArrayList", () -> VoidCyanClient.isArrayListEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Big Head", () -> VoidCyanClient.isBigHeadEnabled));
+      MODULES.add(new ArrayListManager.ModuleEntry("Block Overlay", () -> com.voidcyan.client.FeatureModules.on[com.voidcyan.client.FeatureModules.OVERLAY]));
       MODULES.add(new ArrayListManager.ModuleEntry("China Hat", () -> VoidCyanClient.isChinaHatEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Inv Highlight", () -> VoidCyanClient.isInvHighlightEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Mouse Strokes", () -> VoidCyanClient.isMouseStrokesEnabled));

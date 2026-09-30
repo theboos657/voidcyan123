@@ -1925,6 +1925,7 @@ public class ClickGuiScreen extends Screen {
          case "TNT Timer":
          case "Biome Display":
          case "Water Fog":
+         case "Block Overlay":
             return "World";
          case "Pixel Look":
             return "Player";
@@ -1936,7 +1937,6 @@ public class ClickGuiScreen extends Screen {
             return "Items";
          case "Chunk Borders":
          case "Fog Changer":
-         case "Block Overlay":
          case "Day Counter":
          case "Height Limit":
             return "World";
@@ -6024,7 +6024,7 @@ public class ClickGuiScreen extends Screen {
       this.drawClickGuiButton(context, mouseX, mouseY, rightX, row2Y, btnW, btnH, "Open Models Folder", primary, textAlpha);
       this.drawClickGuiButton(context, mouseX, mouseY, rightX + btnW + btnGap, row2Y, btnW, btnH, "Clear / Remove Model", primary, textAlpha);
 
-      // Footer
+      // Scale row: [-] Model Scale: 1.00x [+] [Reset]
       int row3Y = row2Y + btnH + 6;
       int smallW = 22;
       this.drawClickGuiButton(context, mouseX, mouseY, rightX, row3Y, smallW, btnH, "-", primary, textAlpha);
@@ -6033,6 +6033,8 @@ public class ClickGuiScreen extends Screen {
       int plusX = rightX + smallW + 8 + this.textRenderer.getWidth(scaleLbl) + 8;
       this.drawClickGuiButton(context, mouseX, mouseY, plusX, row3Y, smallW, btnH, "+", primary, textAlpha);
       this.drawClickGuiButton(context, mouseX, mouseY, plusX + smallW + 6, row3Y, 44, btnH, "Reset", primary, textAlpha);
+
+      // Footer
       int row4Y = row3Y + btnH + 6;
       this.drawClickGuiButton(context, mouseX, mouseY, rightX, row4Y, btnW, btnH, "Other Players: " + (VoidCyanClient.playerModelOthers ? "ON" : "OFF"), primary, textAlpha);
       this.drawClickGuiButton(context, mouseX, mouseY, rightX + btnW + btnGap, row4Y, btnW, btnH, "Hide Armor: " + (VoidCyanClient.playerModelHideArmor ? "ON" : "OFF"), primary, textAlpha);

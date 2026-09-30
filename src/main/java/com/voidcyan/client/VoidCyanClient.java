@@ -614,6 +614,8 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean itemPhysicsFallFlips = true;
    public static int itemPhysicsFlipsPerBlock = 2;
    public static boolean isPlayerModelEnabled = false;
+   /** 1.0 = the model is auto-fitted to player height (1.8 blocks); this multiplies on top. */
+   public static float playerModelScale = 1.0F;
    public static String bigItemsItemIds = "minecraft:golden_apple";
    public static float bigItemsScale = 10.0F;
    public static boolean isLowHealthAlarmEnabled = false;
@@ -628,7 +630,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static String lowHealthAlarmSoundFile = "Default Beep";
    public static boolean isKeyboardSoundsEnabled = false;
    public static boolean isChatPersistEnabled = false;
-   public static float playerModelScale = 1.0F;
    public static boolean playerModelOthers = true;
    public static boolean playerModelHideArmor = false;
    public static boolean playerModelHideHeld = true;
@@ -1550,6 +1551,7 @@ public class VoidCyanClient implements ClientModInitializer {
             itemPhysicsFallFlips = Boolean.parseBoolean(props.getProperty("itemPhysicsFallFlips", "true"));
             itemPhysicsFlipsPerBlock = Integer.parseInt(props.getProperty("itemPhysicsFlipsPerBlock", "2"));
             isPlayerModelEnabled = Boolean.parseBoolean(props.getProperty("isPlayerModelEnabled", "false"));
+            playerModelScale = Float.parseFloat(props.getProperty("playerModelScale", "1.0"));
             bigItemsItemIds = props.getProperty("bigItemsItemIds", "minecraft:golden_apple");
             bigItemsScale = Float.parseFloat(props.getProperty("bigItemsScale", "10.0"));
             isLowHealthAlarmEnabled = Boolean.parseBoolean(props.getProperty("isLowHealthAlarmEnabled", "false"));
@@ -2148,7 +2150,6 @@ public class VoidCyanClient implements ClientModInitializer {
             lowHealthAlarmSoundFile = props.getProperty("lowHealthAlarmSoundFile", "Default Beep");
             isKeyboardSoundsEnabled = Boolean.parseBoolean(props.getProperty("isKeyboardSoundsEnabled", "false"));
             isChatPersistEnabled = Boolean.parseBoolean(props.getProperty("isChatPersistEnabled", "false"));
-            playerModelScale = Float.parseFloat(props.getProperty("playerModelScale", "1.0"));
             playerModelOthers = Boolean.parseBoolean(props.getProperty("playerModelOthers", "true"));
             playerModelHideArmor = Boolean.parseBoolean(props.getProperty("playerModelHideArmor", "false"));
             playerModelHideHeld = Boolean.parseBoolean(props.getProperty("playerModelHideHeld", "true"));
@@ -2291,6 +2292,7 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("itemPhysicsFallFlips", String.valueOf(itemPhysicsFallFlips));
       props.setProperty("itemPhysicsFlipsPerBlock", String.valueOf(itemPhysicsFlipsPerBlock));
       props.setProperty("isPlayerModelEnabled", String.valueOf(isPlayerModelEnabled));
+      props.setProperty("playerModelScale", String.valueOf(playerModelScale));
       props.setProperty("bigItemsItemIds", bigItemsItemIds != null ? bigItemsItemIds : "");
       props.setProperty("bigItemsScale", String.valueOf(bigItemsScale));
       props.setProperty("isLowHealthAlarmEnabled", String.valueOf(isLowHealthAlarmEnabled));
@@ -2594,7 +2596,6 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("lowHealthAlarmSoundFile", lowHealthAlarmSoundFile);
       props.setProperty("isKeyboardSoundsEnabled", String.valueOf(isKeyboardSoundsEnabled));
       props.setProperty("isChatPersistEnabled", String.valueOf(isChatPersistEnabled));
-      props.setProperty("playerModelScale", String.valueOf(playerModelScale));
       props.setProperty("playerModelOthers", String.valueOf(playerModelOthers));
       props.setProperty("playerModelHideArmor", String.valueOf(playerModelHideArmor));
       props.setProperty("playerModelHideHeld", String.valueOf(playerModelHideHeld));
