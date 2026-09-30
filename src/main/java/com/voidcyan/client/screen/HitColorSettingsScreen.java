@@ -22,16 +22,10 @@ public class HitColorSettingsScreen extends BaseSettingsScreen {
          VoidCyanClient.onHitColorChanged();
       });
       this.addIntSlider("Duration", 1, 40, () -> VoidCyanClient.hitColorDuration, val -> VoidCyanClient.hitColorDuration = val);
-      this.addIntSlider("Color Red", 0, 255, () -> VoidCyanClient.hitColorRed, val -> {
-         VoidCyanClient.hitColorRed = val;
-         VoidCyanClient.onHitColorChanged();
-      });
-      this.addIntSlider("Color Green", 0, 255, () -> VoidCyanClient.hitColorGreen, val -> {
-         VoidCyanClient.hitColorGreen = val;
-         VoidCyanClient.onHitColorChanged();
-      });
-      this.addIntSlider("Color Blue", 0, 255, () -> VoidCyanClient.hitColorBlue, val -> {
-         VoidCyanClient.hitColorBlue = val;
+      this.addColorPicker("Color", () -> VoidCyanClient.hitColorRed << 16 | VoidCyanClient.hitColorGreen << 8 | VoidCyanClient.hitColorBlue, rgb -> {
+         VoidCyanClient.hitColorRed = rgb >> 16 & 255;
+         VoidCyanClient.hitColorGreen = rgb >> 8 & 255;
+         VoidCyanClient.hitColorBlue = rgb & 255;
          VoidCyanClient.onHitColorChanged();
       });
    }

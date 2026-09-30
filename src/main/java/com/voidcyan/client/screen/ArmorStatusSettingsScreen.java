@@ -20,6 +20,7 @@ public class ArmorStatusSettingsScreen extends BaseSettingsScreen {
       this.addEnum(
          "Orientation", new String[]{"Vertical", "Horizontal"}, () -> VoidCyanClient.armorStatusOrientation, val -> VoidCyanClient.armorStatusOrientation = val
       );
+      this.addBoolean("Border Glow", () -> VoidCyanClient.armorStatusGlow, val -> VoidCyanClient.armorStatusGlow = val);
       this.addBoolean("Show Durability Bar", () -> VoidCyanClient.armorStatusShowDurabilityBar, val -> VoidCyanClient.armorStatusShowDurabilityBar = val);
       this.addBoolean("Show Empty Slots", () -> VoidCyanClient.armorStatusShowEmptySlots, val -> VoidCyanClient.armorStatusShowEmptySlots = val);
       this.addBoolean("Warning Sound", () -> VoidCyanClient.armorStatusWarningSound, val -> VoidCyanClient.armorStatusWarningSound = val);

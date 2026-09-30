@@ -166,7 +166,7 @@ public class WaypointManager {
 
    public static void addWaypoint(String name, int x, int y, int z, String dimension, int color) {
       ensureLoadedForActiveWorld();
-      waypoints.add(new WaypointManager.Waypoint(name, x, y, z, dimension, color, true, true, 10, 100, true, true, "minecraft:compass"));
+      waypoints.add(new WaypointManager.Waypoint(name, x, y, z, dimension, color, true, true, 10, 100, true, true, "minecraft:compass", 0));
       saveWaypoints();
    }
 
@@ -182,12 +182,13 @@ public class WaypointManager {
       int outlineOpacity,
       boolean showLabel,
       boolean showBlockDisplay,
-      String iconItem
+      String iconItem,
+      int radius
    ) {
       ensureLoadedForActiveWorld();
       waypoints.add(
          new WaypointManager.Waypoint(
-            name, x, y, z, dimension, color, true, renderThroughWalls, fillOpacity, outlineOpacity, showLabel, showBlockDisplay, iconItem
+            name, x, y, z, dimension, color, true, renderThroughWalls, fillOpacity, outlineOpacity, showLabel, showBlockDisplay, iconItem, radius
          )
       );
       saveWaypoints();
@@ -346,6 +347,8 @@ public class WaypointManager {
          + wp.showBlockDisplay
          + ",\"iconItem\":"
          + jsonString(wp.iconItem)
+         + ",\"radius\":"
+         + wp.radius
          + "}";
    }
 
@@ -408,7 +411,8 @@ public class WaypointManager {
          iconItem = "minecraft:compass";
       }
 
-      return new WaypointManager.Waypoint(name, x, y, z, dimension, color, enabled, rtw, fillOp, outOp, slbl, sbk, iconItem);
+      int radius = parseIntField(json, "radius", 0);
+      return new WaypointManager.Waypoint(name, x, y, z, dimension, color, enabled, rtw, fillOp, outOp, slbl, sbk, iconItem, radius);
    }
 
    private static String parseStringField(String json, String key) {
@@ -510,6 +514,7 @@ public class WaypointManager {
       public boolean showLabel;
       public boolean showBlockDisplay;
       public String iconItem;
+      public int radius;
 
       public Waypoint(
          String name,
@@ -524,7 +529,8 @@ public class WaypointManager {
          int outlineOpacity,
          boolean showLabel,
          boolean showBlockDisplay,
-         String iconItem
+         String iconItem,
+         int radius
       ) {
          this.name = name;
          this.x = x;
@@ -539,6 +545,7 @@ public class WaypointManager {
          this.showLabel = showLabel;
          this.showBlockDisplay = showBlockDisplay;
          this.iconItem = iconItem != null ? iconItem : "minecraft:compass";
+         this.radius = radius;
       }
 
       @Override

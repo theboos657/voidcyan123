@@ -11,7 +11,7 @@ public final class ModuleDescriptions {
    private static final Map<String, String> MAP = new HashMap<>();
 
    static {
-         MAP.put("Inv HUD", "Shows your inventory on the HUD");
+         MAP.put("Inventory", "Shows your inventory on the HUD");
          MAP.put("FPS Counter", "Displays current frames per second");
          MAP.put("Coordinates", "Shows your XYZ position and facing");
          MAP.put("CPS Counter", "Tracks left and right clicks per second");
@@ -60,13 +60,29 @@ public final class ModuleDescriptions {
          MAP.put("Biome Display", "Shows the biome you are standing in");
          MAP.put("Entity Counter", "Counts loaded entities around you");
          MAP.put("IRL Clock", "Shows your real-world time in-game");
+         MAP.put("Bossbar", "Hide, scale and move the boss bars");
+         MAP.put("Day Counter", "Shows the world day and time of day");
+         MAP.put("Direction HUD", "Shows facing direction, yaw and pitch");
+         MAP.put("Height Limit", "Blocks left to the build limit and bedrock");
+         MAP.put("Chunk Borders", "Draws chunk and sub-chunk borders");
+         MAP.put("Block Overlay", "Custom outline and fill for the targeted block");
+         MAP.put("Block Hit", "Sword blocking pose while you swing (1.7 style)");
+         MAP.put("Crit Multiplier", "Multiplies crit particles on critical hits");
+         MAP.put("Hit Sounds", "Plays a custom sound when you hit something");
+         MAP.put("Trajectories", "Preview the path of bows, pearls and tridents");
+         MAP.put("Fog Changer", "Remove fog or set a custom fog distance");
+         MAP.put("Motion Blur", "Frame-blending motion blur (trails on movement)");
+         MAP.put("Menu Blur", "Turn off to remove the blur behind menus");
+         MAP.put("Tooltip+", "Durability %, components and scrollable tooltips");
+         MAP.put("Pixel Look", "Shows which texture pixel of a block you are looking at");
+         MAP.put("Auto Sprint", "Sprints automatically while moving forward");
+         MAP.put("Auto Reconnect", "Reconnect button (or auto) after being kicked");
          MAP.put("Totem Counter", "Tracks totems of undying in inventory");
          MAP.put("Arrow Counter", "Counts arrows in your inventory");
          MAP.put("Reach Display", "Shows the distance of your last hit");
          MAP.put("Pack Display", "Shows active resource pack names");
          MAP.put("Block Info HUD", "Info about the block you are looking at");
          MAP.put("Death Info", "Records cause and location of death");
-         MAP.put("System Resources", "Shows CPU and RAM usage on the HUD");
          MAP.put("Toggle Sprint", "Hold sprint key to sprint indefinitely");
          MAP.put("Toggle Sneak", "Press sneak once to stay crouched");
          MAP.put("Time Changer", "Changes the visual sky time client-side");

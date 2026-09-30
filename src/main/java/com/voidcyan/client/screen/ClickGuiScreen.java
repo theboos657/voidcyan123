@@ -1,6 +1,7 @@
 package com.voidcyan.client.screen;
 
 import com.voidcyan.client.OptimizeManager;
+import com.voidcyan.client.FeatureModules;
 import com.voidcyan.client.VoidCyanClient;
 import com.voidcyan.client.CritEffectsManager;
 import net.minecraft.util.Util;
@@ -41,7 +42,15 @@ import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.recipe.Ingredient;
+import net.minecraft.recipe.RecipeDisplayEntry;
+import net.minecraft.recipe.display.SlotDisplayContexts;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import net.minecraft.util.context.ContextParameterMap;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -51,10 +60,14 @@ public class ClickGuiScreen extends Screen {
    private final List<ClickGuiScreen.Friend> friends = new ArrayList<>();
    private final List<ClickGuiScreen.Screenshot> screenshots = new ArrayList<>();
    private final List<ClickGuiScreen.BackgroundFile> backgroundFiles = new ArrayList<>();
+   public static int startTab = -1;
    private int currentTab = 0;
    private int targetTab = 0;
    private int scrollOffset = 0;
    private int maxScrollOffset = 0;
+   private int moduleCardW;
+   private int moduleCardH = 44;
+   private int moduleListBottom = Integer.MAX_VALUE;
    private int targetScrollOffset = 0;
    private boolean isDraggingScrollbar = false;
    private int dragStartY = 0;
@@ -70,8 +83,15 @@ public class ClickGuiScreen extends Screen {
       "All", "Combat", "Items", "World", "HUD", "Player"
    };
    private final String[] tabNames = new String[]{
-      "Modules", "Screenshots", "Backgrounds", "Settings", "Friends", "Config", "Statistics", "Notes", "Calculator", "Textures", "Player Model"
+      "Modules", "Screenshots", "Backgrounds", "Settings", "Friends", "Config", "Statistics", "Extras"
    };
+   private final String[] extrasSubTabs = new String[]{"Calculator", "Model", "Textures", "Recipes", "Notes"};
+   private int extrasSubTab = 0;
+   private String recipeSearch = "";
+   private boolean isRecipeSearchFocused = false;
+   private ItemStack selectedRecipeItem = ItemStack.EMPTY;
+   private List<ItemStack> recipeCraftedFrom = List.of();
+   private List<ItemStack> recipeUsedIn = List.of();
    private boolean isConfigNameFocused = false;
    private int selectedNoteIndex = -1;
    private boolean isNoteTitleFocused = false;
@@ -141,9 +161,34 @@ public class ClickGuiScreen extends Screen {
       this.height = GuiScaleManager.logicalHeight(this.client);
    }
 
+   private int sbw() {
+      return GuiStyle.orbitSkin ? 0 : GuiStyle.SIDEBAR_W;
+   }
+
+   @Override
+   public void removed() {
+      GuiStyle.orbitSkin = false;
+   }
+
+   @Override
+   public void close() {
+      if (this.parent instanceof OrbitGuiScreen) {
+         this.client.setScreen(this.parent);
+      } else {
+         super.close();
+      }
+   }
+
    public ClickGuiScreen(Screen parent) {
       super(Text.literal("Void Cyan Click GUI"));
       this.parent = parent;
+      GuiStyle.orbitSkin = parent instanceof OrbitGuiScreen;
+      if (startTab >= 0) {
+         this.currentTab = startTab;
+         this.targetTab = startTab;
+         startTab = -1;
+      }
+
       this.openTime = System.currentTimeMillis();
       this.initModules();
       this.initFriends();
@@ -175,7 +220,7 @@ public class ClickGuiScreen extends Screen {
       this.modules
          .add(
             new ClickGuiScreen.ModuleInfo(
-                  "Inv HUD",
+                  "Inventory",
                   () -> VoidCyanClient.isInvHudEnabled = !VoidCyanClient.isInvHudEnabled,
                   VoidCyanClient.isInvHudEnabled,
                   () -> this.client.setScreen(new InvHudSettingsScreen(this)),
@@ -376,6 +421,71 @@ public class ClickGuiScreen extends Screen {
                   }
                )
                .desc("Shows your current server ping")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Keyboard Sounds",
+                  () -> VoidCyanClient.isKeyboardSoundsEnabled = !VoidCyanClient.isKeyboardSoundsEnabled,
+                  VoidCyanClient.isKeyboardSoundsEnabled,
+                  () -> this.client.setScreen(new KeyboardSoundsSettingsScreen(this))
+               )
+               .desc("Plays a chosen sound when you press a chosen key")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Scoreboard",
+                  () -> VoidCyanClient.isScoreboardEnabled = !VoidCyanClient.isScoreboardEnabled,
+                  VoidCyanClient.isScoreboardEnabled,
+                  () -> this.client.setScreen(new ScoreboardSettingsScreen(this))
+               )
+               .desc("Reposition the scoreboard and set its default text color")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Shulker Preview",
+                  () -> VoidCyanClient.isShulkerPreviewEnabled = !VoidCyanClient.isShulkerPreviewEnabled,
+                  VoidCyanClient.isShulkerPreviewEnabled,
+                  () -> this.client.setScreen(new ShulkerPreviewSettingsScreen(this))
+               )
+               .desc("Hold to preview, lock to inspect a shulker box's contents")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Chat",
+                  () -> VoidCyanClient.isChatModuleEnabled = !VoidCyanClient.isChatModuleEnabled,
+                  VoidCyanClient.isChatModuleEnabled,
+                  () -> this.client.setScreen(new ChatSettingsScreen(this))
+               )
+               .desc("History, range filter, bubbles, repeat compaction, word filter")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Persistent Chat",
+                  () -> VoidCyanClient.isChatPersistEnabled = !VoidCyanClient.isChatPersistEnabled,
+                  VoidCyanClient.isChatPersistEnabled
+               )
+               .desc("Keeps chat messages when you leave and rejoin")
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Action Bar",
+                  () -> VoidCyanClient.isActionBarEnabled = !VoidCyanClient.isActionBarEnabled,
+                  VoidCyanClient.isActionBarEnabled,
+                  () -> this.client.setScreen(new ActionBarSettingsScreen(this)),
+                  () -> {
+                     VoidCyanClient.actionBarX = 130;
+                     VoidCyanClient.actionBarY = 310;
+                     VoidCyanClient.actionBarScale = 1.0F;
+                     VoidCyanClient.markConfigDirty();
+                  }
+               )
+               .desc("Move and resize the action bar")
          );
       this.modules
          .add(
@@ -625,7 +735,7 @@ public class ClickGuiScreen extends Screen {
                   "Peer Nick",
                   () -> VoidCyanClient.isPeerNickEnabled = !VoidCyanClient.isPeerNickEnabled,
                   VoidCyanClient.isPeerNickEnabled,
-                  () -> this.client.setScreen(new NickHiderSettingsScreen(this))
+                  () -> this.client.setScreen(new PeerNickSettingsScreen(this))
                )
                .desc("Assigns nicknames to other players")
          );
@@ -812,6 +922,180 @@ public class ClickGuiScreen extends Screen {
       this.modules
          .add(
             new ClickGuiScreen.ModuleInfo(
+                  "Bossbar",
+                  () -> FeatureModules.toggle("Bossbar"),
+                  FeatureModules.on[0],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Bossbar"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Bossbar"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Day Counter",
+                  () -> FeatureModules.toggle("Day Counter"),
+                  FeatureModules.on[1],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Day Counter")),
+                  () -> {
+                     FeatureModules.dayX = 10;
+                     FeatureModules.dayY = 60;
+                     FeatureModules.dayScale = 1.0F;
+                     VoidCyanClient.markConfigDirty();
+                  }
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Day Counter"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Direction HUD",
+                  () -> FeatureModules.toggle("Direction HUD"),
+                  FeatureModules.on[2],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Direction HUD")),
+                  () -> {
+                     FeatureModules.dirX = 10;
+                     FeatureModules.dirY = 84;
+                     FeatureModules.dirScale = 1.0F;
+                     VoidCyanClient.markConfigDirty();
+                  }
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Direction HUD"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Height Limit",
+                  () -> FeatureModules.toggle("Height Limit"),
+                  FeatureModules.on[3],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Height Limit")),
+                  () -> {
+                     FeatureModules.hlX = 10;
+                     FeatureModules.hlY = 108;
+                     FeatureModules.hlScale = 1.0F;
+                     VoidCyanClient.markConfigDirty();
+                  }
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Height Limit"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Chunk Borders",
+                  () -> FeatureModules.toggle("Chunk Borders"),
+                  FeatureModules.on[4],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Chunk Borders"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Chunk Borders"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Block Overlay",
+                  () -> FeatureModules.toggle("Block Overlay"),
+                  FeatureModules.on[5],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Block Overlay"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Block Overlay"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Block Hit",
+                  () -> FeatureModules.toggle("Block Hit"),
+                  FeatureModules.on[6],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Block Hit"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Block Hit"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Crit Multiplier",
+                  () -> FeatureModules.toggle("Crit Multiplier"),
+                  FeatureModules.on[7],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Crit Multiplier"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Crit Multiplier"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Hit Sounds",
+                  () -> FeatureModules.toggle("Hit Sounds"),
+                  FeatureModules.on[8],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Hit Sounds"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Hit Sounds"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Trajectories",
+                  () -> FeatureModules.toggle("Trajectories"),
+                  FeatureModules.on[9],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Trajectories"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Trajectories"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Fog Changer",
+                  () -> FeatureModules.toggle("Fog Changer"),
+                  FeatureModules.on[10],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Fog Changer"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Fog Changer"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Tooltip+",
+                  () -> FeatureModules.toggle("Tooltip+"),
+                  FeatureModules.on[13],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Tooltip+"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Tooltip+"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Auto Sprint",
+                  () -> FeatureModules.toggle("Auto Sprint"),
+                  FeatureModules.on[14],
+                  null
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Auto Sprint"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Auto Reconnect",
+                  () -> FeatureModules.toggle("Auto Reconnect"),
+                  FeatureModules.on[15],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Auto Reconnect"))
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Auto Reconnect"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
+                  "Pixel Look",
+                  () -> FeatureModules.toggle("Pixel Look"),
+                  FeatureModules.on[FeatureModules.PIXEL],
+                  () -> this.client.setScreen(new FeatureSettingsScreen(this, "Pixel Look")),
+                  () -> {
+                     FeatureModules.plX = 10;
+                     FeatureModules.plY = 132;
+                     FeatureModules.plScale = 1.0F;
+                     VoidCyanClient.markConfigDirty();
+                  }
+               )
+               .desc(com.voidcyan.client.ModuleDescriptions.of("Pixel Look"))
+         );
+      this.modules
+         .add(
+            new ClickGuiScreen.ModuleInfo(
                   "Totem Counter",
                   () -> VoidCyanClient.isTotemCounterEnabled = !VoidCyanClient.isTotemCounterEnabled,
                   VoidCyanClient.isTotemCounterEnabled,
@@ -904,22 +1188,6 @@ public class ClickGuiScreen extends Screen {
                   }
                )
                .desc("Records cause and location of death")
-         );
-      this.modules
-         .add(
-            new ClickGuiScreen.ModuleInfo(
-                  "System Resources",
-                  () -> VoidCyanClient.isSystemResourcesEnabled = !VoidCyanClient.isSystemResourcesEnabled,
-                  VoidCyanClient.isSystemResourcesEnabled,
-                  () -> this.client.setScreen(new SystemResourcesSettingsScreen(this)),
-                  () -> {
-                     VoidCyanClient.systemResourcesX = 10;
-                     VoidCyanClient.systemResourcesY = 50;
-                     VoidCyanClient.systemResourcesScale = 1.0F;
-                     VoidCyanClient.markConfigDirty();
-                  }
-               )
-               .desc("Shows CPU and RAM usage on the HUD")
          );
       this.modules
          .add(
@@ -1067,7 +1335,8 @@ public class ClickGuiScreen extends Screen {
             new ClickGuiScreen.ModuleInfo(
                   "Transparent Shield",
                   () -> VoidCyanClient.isTransparentShieldEnabled = !VoidCyanClient.isTransparentShieldEnabled,
-                  VoidCyanClient.isTransparentShieldEnabled
+                  VoidCyanClient.isTransparentShieldEnabled,
+                  () -> this.client.setScreen(new TransparentShieldSettingsScreen(this))
                )
                .desc("Makes the held shield transparent")
          );
@@ -1097,7 +1366,7 @@ public class ClickGuiScreen extends Screen {
 
    private void initBackgroundFiles() {
       this.backgroundFiles.clear();
-      File dir = new File(MinecraftClient.getInstance().runDirectory, "background");
+      File dir = new File(MinecraftClient.getInstance().runDirectory, "voidcyan/background");
       if (!dir.exists()) {
          dir.mkdirs();
       }
@@ -1140,9 +1409,7 @@ public class ClickGuiScreen extends Screen {
       // resize the GUI live, without waiting for a window-resize init pass.
       this.width = GuiScaleManager.logicalWidth(this.client);
       this.height = GuiScaleManager.logicalHeight(this.client);
-      // Vanilla screen coords already have the game GUI Scale baked in; only the
-      // dedicated Click GUI multiplier remains as the render transform.
-      float scaleRatio = GuiScaleManager.multiplier();
+      float scaleRatio = GuiScaleManager.renderScale();
       context.getMatrices().pushMatrix();
       context.getMatrices().scale(scaleRatio, scaleRatio);
       double mx = GuiScaleManager.toLogical((double)mouseX);
@@ -1158,22 +1425,35 @@ public class ClickGuiScreen extends Screen {
 
       int primary = VoidCyanClient.getPrimaryColor();
       float grow = Math.min(1.0F, 0.55F + openProgress * 0.45F);
-      int winW = (int)((this.width - GuiStyle.WINDOW_MARGIN * 2) * grow);
-      int winH = (int)((this.height - GuiStyle.WINDOW_MARGIN * 2) * grow);
+      int winW = (int)(Math.min(this.width - 24, Math.max(GuiStyle.square() ? 560 : 640, this.width * (GuiStyle.square() ? 62 : 62) / 100)) * grow);
+      int winH = (int)(Math.min(this.height - 24, Math.max(GuiStyle.square() ? 340 : 360, this.height * (GuiStyle.square() ? 66 : 72) / 100)) * grow);
       int winX = (this.width - winW) / 2;
       int winY = (this.height - winH) / 2;
       this.windowX = winX;
       this.windowY = winY;
       this.windowW = winW;
       this.windowH = winH;
+      if (GuiStyle.square()) {
+         this.applyBlur(context);
+         context.fill(0, 0, this.width, this.height, (int)(openProgress * 120.0F) << 24 | 0x05070B);
+      }
+
       GuiStyle.drawWindow(context, winX, winY, winW, winH, primary, openProgress);
       context.enableScissor(winX + 1, winY + 1, winX + winW - 1, winY + winH - 1);
 
       int mix = (int)mx;
       int miy = (int)my;
-      this.renderAnimatedSidebar(context, mix, miy, openProgress, winX, winY, winW, winH);
+      if (!GuiStyle.orbitSkin) this.renderAnimatedSidebar(context, mix, miy, openProgress, winX, winY, winW, winH);
       this.renderAnimatedContent(context, mix, miy, openProgress, winX, winY, winW, winH);
-      context.disableScissor();      // Color picker modal draws above the window content, in logical space.
+      context.disableScissor();
+      if (GuiStyle.orbitSkin) {
+         boolean hov = GuiStyle.inRect(mix, miy, winX + winW - 66, winY + 8, 58, 16);
+         GuiStyle.roundedBordered(context, winX + winW - 66, winY + 8, 58, 16, 4, hov ? 0xFF3A2A5A : 0xFF241838, 0xFF000000 | (primary & 0xFFFFFF));
+         GuiStyle.textCentered(context, this.textRenderer, "< ORBIT", winX + winW - 37, winY + 12, 0xFFFFFFFF);
+      }
+
+      if (this.inlineSettings != null && this.currentTab != 0) this.closeInlineSettings();
+      // Color picker modal draws above the window content, in logical space.
       if (this.colorModal != null) {
          if (!this.colorModal.isOpen()) {
             this.colorModal = null;
@@ -1251,6 +1531,84 @@ public class ClickGuiScreen extends Screen {
       return 1.0F - (float)Math.pow(1.0F - t, 3.0);
    }
 
+   private static final int SQ_CAT_TOP = 70;
+   private static final int SQ_CAT_STEP = 27;
+
+   private int sqCatStep(int winH) {
+      return Math.max(20, Math.min(SQ_CAT_STEP, (winH - 12 - SQ_CARD_H - 8 - SQ_CAT_TOP) / MODULE_CATEGORIES.length));
+   }
+   private static final int SQ_CARD_H = 76;
+   private final float[] sqCatHover = new float[8];
+   private final float[] sqBtnHover = new float[8];
+
+   private int sqBtnX(int winX, int tab) {
+      return winX + 10 + 6 + (tab - 1) * 17;
+   }
+
+   private int sqBtnY(int winY, int winH) {
+      return winY + winH - 12 - 26;
+   }
+
+   /** Square sidebar: category list on top, profile card with page icon buttons at the bottom. */
+   private void renderSquareSidebar(DrawContext context, int mouseX, int mouseY, float anim, int winX, int winY, int winH) {
+      int primary = VoidCyanClient.getPrimaryColor();
+      int a255 = (int)(anim * 255.0F);
+      int sw = GuiStyle.SIDEBAR_W;
+      GuiStyle.roundedRect(context, winX, winY, sw, winH, GuiStyle.WINDOW_RADIUS, (int)(anim * 200.0F) << 24 | 0x07090D);
+      context.fill(winX + sw - 1, winY + 10, winX + sw, winY + winH - 10, (int)(anim * 40.0F) << 24 | 0x00FFFFFF);
+
+      GuiStyle.drawLogo(context, winX + 12, winY + 12, 24, primary, anim);
+      GuiStyle.text(context, this.textRenderer, "VoidCyan", winX + 44, winY + 15, a255 << 24 | 0x00FFFFFF);
+      GuiStyle.text(context, this.textRenderer, "v1.0.0", winX + 44, winY + 26, (int)(anim * 110.0F) << 24 | 0x00FFFFFF);
+
+      context.getMatrices().pushMatrix();
+      context.getMatrices().translate(winX + 14, winY + SQ_CAT_TOP - 16);
+      context.getMatrices().scale(0.75F, 0.75F);
+      GuiStyle.text(context, this.textRenderer, "CATEGORIES", 0, 0, (int)(anim * 100.0F) << 24 | 0x00FFFFFF);
+      context.getMatrices().popMatrix();
+
+      for (int i = 0; i < MODULE_CATEGORIES.length; i++) {
+         int ry = winY + SQ_CAT_TOP + i * this.sqCatStep(winH);
+         boolean hov = GuiStyle.inRect(mouseX, mouseY, winX + 8, ry, sw - 16, 23);
+         this.sqCatHover[i] = hov ? Math.min(1.0F, this.sqCatHover[i] + 0.15F) : Math.max(0.0F, this.sqCatHover[i] - 0.15F);
+         boolean active = this.currentTab == 0 && MODULE_CATEGORIES[i].equals(this.selectedModuleCategory);
+         if (active) {
+            GuiStyle.roundedRect(context, winX + 8, ry, sw - 16, 23, 4, (int)(anim * 60.0F) << 24 | (primary & 0x00FFFFFF));
+            GuiStyle.roundedOutline(context, winX + 8, ry, sw - 16, 23, 4, (int)(anim * 120.0F) << 24 | (primary & 0x00FFFFFF));
+         } else if (this.sqCatHover[i] > 0.01F) {
+            GuiStyle.roundedRect(context, winX + 8, ry, sw - 16, 23, 4, (int)(anim * 22.0F * this.sqCatHover[i]) << 24 | 0x00FFFFFF);
+         }
+
+         int col = active ? a255 << 24 | (primary & 0x00FFFFFF) : (int)((0.55F + this.sqCatHover[i] * 0.4F) * anim * 255.0F) << 24 | 0x00E6EAF2;
+         GuiStyle.categoryIcon(context, i, winX + 17, ry + 4, 15, col);
+         GuiStyle.text(context, this.textRenderer, MODULE_CATEGORIES[i], winX + 36, ry + 8, col);
+      }
+
+      // Profile card.
+      int cardX = winX + 10;
+      int cardW = sw - 20;
+      int cardY = winY + winH - 12 - SQ_CARD_H;
+      GuiStyle.roundedBordered(context, cardX, cardY, cardW, SQ_CARD_H, 5, (int)(anim * 150.0F) << 24 | 0x10131A, (int)(anim * 50.0F) << 24 | 0x00FFFFFF);
+      String hint = "MC " + this.mcVersion();
+      int btnY = this.sqBtnY(winY, winH);
+      for (int t = 1; t < this.tabNames.length; t++) {
+         int bx = this.sqBtnX(winX, t);
+         boolean hov = GuiStyle.inRect(mouseX, mouseY, bx, btnY, 15, 15);
+         this.sqBtnHover[t] = hov ? Math.min(1.0F, this.sqBtnHover[t] + 0.15F) : Math.max(0.0F, this.sqBtnHover[t] - 0.15F);
+         boolean active = this.currentTab == t || this.targetTab == t;
+         if (hov) hint = this.tabNames[t];
+         GuiStyle.roundedRect(context, bx, btnY, 15, 15, 4, (int)(anim * (active ? 70 : 20 + 30 * this.sqBtnHover[t])) << 24 | (active ? primary & 0x00FFFFFF : 0x00FFFFFF));
+         int ic = active ? a255 << 24 | (primary & 0x00FFFFFF) : (int)(anim * 200.0F) << 24 | 0x00E6EAF2;
+         if (!GuiStyle.tabIcon(context, t, bx + 2, btnY + 2, 11, ic)) GuiStyle.sidebarIcon(context, t, bx + 2, btnY + 2, 11, ic);
+      }
+
+      if (this.client != null && this.client.player != null) {
+         net.minecraft.client.gui.PlayerSkinDrawer.draw(context, this.client.player.getSkin(), cardX + 8, cardY + 8, 28);
+         GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis(this.client.player.getName().getString(), cardW - 50), cardX + 42, cardY + 12, (int)(anim * 240.0F) << 24 | 0x00FFFFFF);
+         GuiStyle.text(context, this.textRenderer, hint, cardX + 42, cardY + 24, (int)(anim * 130.0F) << 24 | (hint.startsWith("MC ") ? 0x00FFFFFF : primary & 0x00FFFFFF));
+      }
+   }
+
    private int getSidebarTabStartY() {
       return 52;
    }
@@ -1269,6 +1627,11 @@ public class ClickGuiScreen extends Screen {
       int primary = VoidCyanClient.getPrimaryColor();
       float anim = this.contentAnimation * openProgress;
       if (anim <= 0.01F) return;
+      if (GuiStyle.square()) {
+         this.renderSquareSidebar(context, mouseX, mouseY, anim, winX, winY, winH);
+         return;
+      }
+
       int a255 = (int)(anim * 255.0F);
       int sidebarW = GuiStyle.SIDEBAR_W;
       int sbX = winX;
@@ -1276,7 +1639,7 @@ public class ClickGuiScreen extends Screen {
       int sbH = winH;
 
       // Sidebar background: darker well + vertical divider tinted by theme.
-      GuiStyle.roundedRect(context, sbX, sbY, sidebarW, sbH, GuiStyle.WINDOW_RADIUS, (int)(anim * 235.0F) << 24 | 0x0A0812);
+      GuiStyle.roundedRect(context, sbX, sbY, sidebarW, sbH, GuiStyle.WINDOW_RADIUS, (int)(anim * 235.0F) << 24 | GuiStyle.pal(0x0A0812));
       context.fill(sbX + sidebarW - 1, sbY + 8, sbX + sidebarW, sbY + sbH - 8, (int)(anim * 70.0F) << 24 | (primary & 0x00FFFFFF));
 
       // ---- Brand row: mod icon + name + version chip.
@@ -1284,6 +1647,7 @@ public class ClickGuiScreen extends Screen {
       int brandY = sbY + 12;
       GuiStyle.drawLogo(context, sbX + 12, brandY, logoSize, primary, anim);
       int nameCol = (int)(a255) << 24 | 0x00FFFFFF;
+      {
       GuiStyle.text(context, this.textRenderer, "VoidCyan", sbX + 12 + logoSize + 8, brandY + 3, nameCol);
       String verChip = "1.0.0";
       int chipW = this.textRenderer.getWidth(verChip) + 10;
@@ -1296,6 +1660,7 @@ public class ClickGuiScreen extends Screen {
          (int)(anim * 0.5F) << 24 | (primary & 0x00FFFFFF)
       );
       GuiStyle.text(context, this.textRenderer, verChip, chipX + 5, chipY + 3, (int)(anim * 200.0F) << 24 | (primary & 0x00FFFFFF));
+      }
 
       // ---- Tab rows.
       int tabStartY = sbY + this.getSidebarTabStartY();
@@ -1344,12 +1709,17 @@ public class ClickGuiScreen extends Screen {
       int cardW = sidebarW - 20;
       boolean profHover = GuiStyle.inRect(mouseX, mouseY, cardX, cardY, cardW, cardH);
       this.profileHover = profHover ? Math.min(1.0F, this.profileHover + 0.1F) : Math.max(0.0F, this.profileHover - 0.1F);
-      int pCardBg = (int)(anim * (140 + this.profileHover * 40.0F)) << 24 | 0x171122;
+      int pCardBg = (int)(anim * (140 + this.profileHover * 40.0F)) << 24 | GuiStyle.pal(0x171122);
       int pCardBorder = (int)(anim * (60 + this.profileHover * 80.0F)) << 24 | (primary & 0x00FFFFFF);
       GuiStyle.roundedBordered(context, cardX, cardY, cardW, cardH, 6, pCardBg, pCardBorder);
 
       // Use the same vanilla entity renderer as the inventory screen instead of a flat skin crop.
-      if (this.client != null && this.client.player != null) {
+      if (GuiStyle.square() && this.client != null && this.client.player != null) {
+         context.fill(cardX + 8, cardY + 8, cardX + 48, cardY + 48, (int)(anim * 255.0F) << 24 | (primary & 0x00FFFFFF));
+         net.minecraft.client.gui.PlayerSkinDrawer.draw(context, this.client.player.getSkin(), cardX + 10, cardY + 10, 36);
+         GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis(this.client.player.getName().getString(), cardW - 62), cardX + 54, cardY + 12, (int)(anim * 240.0F) << 24 | 0x00FFFFFF);
+         GuiStyle.text(context, this.textRenderer, "MC " + this.mcVersion(), cardX + 54, cardY + 24, (int)(anim * 110.0F) << 24 | 0x00FFFFFF);
+      } else if (this.client != null && this.client.player != null) {
          int entityX = cardX + 5;
          int entityY = cardY + 3;
          // Static 3D model: passing the region center as the mouse position cancels rotation,
@@ -1363,10 +1733,11 @@ public class ClickGuiScreen extends Screen {
       // Keep the profile card visual-only: static 3D model on the left, info stacked on the right.
       int textX = cardX + 48;
       String subLine = "MC " + this.mcVersion();
-      GuiStyle.text(context, this.textRenderer, subLine, textX, cardY + 16, (int)(anim * 150.0F) << 24 | 0x00FFFFFF);
+      if (!GuiStyle.square()) GuiStyle.text(context, this.textRenderer, subLine, textX, cardY + 16, (int)(anim * 150.0F) << 24 | 0x00FFFFFF);
 
       // Discord invite on its own row, right of the model so it never overlaps the skin.
-      int dcY = cardY + 42;
+      int dcY = cardY + (GuiStyle.square() ? 54 : 42);
+      if (GuiStyle.square()) textX = cardX + 10;
       boolean dcHover = profHover && mouseX >= textX - 2 && mouseY >= dcY - 2 && mouseY <= dcY + 12;
       this.discordHover = dcHover ? Math.min(1.0F, this.discordHover + 0.1F) : Math.max(0.0F, this.discordHover - 0.1F);
       int dcCol = (int)(anim * (200 + this.discordHover * 55.0F)) << 24 | (primary & 0x00FFFFFF);
@@ -1404,13 +1775,13 @@ public class ClickGuiScreen extends Screen {
    private void renderAnimatedContent(DrawContext context, int mouseX, int mouseY, float openProgress, int winX, int winY, int winW, int winH) {
       int primary = VoidCyanClient.getPrimaryColor();
       float anim = this.contentAnimation * openProgress;
-      int contentX = winX + GuiStyle.SIDEBAR_W;
+      int contentX = winX + this.sbw();
       int contentY = winY;
-      int contentW = winW - GuiStyle.SIDEBAR_W;
+      int contentW = winW - this.sbw();
       if (contentW <= 0) return;
 
       // Content well background.
-      GuiStyle.roundedRect(context, contentX, contentY, contentW, winH, 10, (int)(anim * 140.0F) << 24 | 0x100C18);
+      GuiStyle.roundedRect(context, contentX, contentY, contentW, winH, 10, (int)(anim * 140.0F) << 24 | GuiStyle.pal(0x100C18));
       int sbX = contentX + 10;
       int sbY = contentY + 10;
       int sbW = contentW - 20;
@@ -1445,13 +1816,7 @@ public class ClickGuiScreen extends Screen {
             this.renderAnimatedStatsTab(context, mouseX, mouseY, innerX, innerY, innerW, contentAlpha);
             break;
          case 7:
-            this.renderAnimatedNotesTab(context, mouseX, mouseY, innerX, innerY, innerW, contentAlpha);
-            break;
-         case 8:
-            this.renderAnimatedCalculatorTab(context, mouseX, mouseY, innerX, innerY, innerW, contentAlpha);
-            break;
-         case 10:
-            this.renderAnimatedPlayerModelTab(context, mouseX, mouseY, innerX, innerY, innerW, contentAlpha);
+            this.renderAnimatedExtrasTab(context, mouseX, mouseY, innerX, innerY, innerW, contentAlpha);
             break;
       }
    }
@@ -1486,6 +1851,12 @@ public class ClickGuiScreen extends Screen {
          int ax = x + offsetX;
          int ay = y + offsetY;
          float fade = intensity * progress;
+         if (GuiStyle.square()) {
+            int ca = (int)(progress * 255.0F);
+            GuiStyle.roundedBordered(context, ax, ay, scaledWidth, scaledHeight, 4, (int)(ca * 0.85F) << 24 | 0x10131A, (int)(ca * 0.22F) << 24 | 0x00FFFFFF);
+            return;
+         }
+
          int shadowA = (int)(fade * 50.0F);
          GuiStyle.roundedRect(context, ax + 2, ay + 3, scaledWidth, scaledHeight, 3, shadowA << 24);
          int bgCol = (int)(progress * 216.0F) << 24 | 0x171320;
@@ -1537,7 +1908,7 @@ public class ClickGuiScreen extends Screen {
          case "Logout Spots":
          case "Effects":
             return "Combat";
-         case "Inv HUD":
+         case "Inventory":
          case "Item Physics":
          case "Big Items":
          case "Inv Highlight":
@@ -1555,6 +1926,24 @@ public class ClickGuiScreen extends Screen {
          case "Biome Display":
          case "Water Fog":
             return "World";
+         case "Pixel Look":
+            return "Player";
+         case "Crit Multiplier":
+         case "Hit Sounds":
+         case "Block Hit":
+            return "Combat";
+         case "Tooltip+":
+            return "Items";
+         case "Chunk Borders":
+         case "Fog Changer":
+         case "Block Overlay":
+         case "Day Counter":
+         case "Height Limit":
+            return "World";
+         case "Auto Sprint":
+         case "Trajectories":
+         case "Motion Blur":
+            return "Player";
          case "FreeLook":
          case "Zoom":
          case "Saturation":
@@ -1571,15 +1960,25 @@ public class ClickGuiScreen extends Screen {
       }
    }
 
-   private void renderAnimatedModulesTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha, int contentBottom) {
+   private void renderAnimatedModulesTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha, int contentBottomIn) {
       if (alpha <= 0.0F) return;
       int primary = VoidCyanClient.getPrimaryColor();
       int a255 = (int)(alpha * 255.0F);
+      int contentBottom = contentBottomIn;
+      this.moduleListBottom = contentBottom;
 
       // ---- Header: tab icon + title, then A-Z / Enabled chips + search pill on the right.
       int headerY = y - 2;
       String pageTitle = this.tabNames[this.currentTab];
-      GuiStyle.text(context, this.textRenderer, pageTitle, x, headerY, (int)(a255) << 24 | (primary & 0x00FFFFFF));
+      if (GuiStyle.cool() || GuiStyle.square()) {
+         context.getMatrices().pushMatrix();
+         context.getMatrices().translate(x, headerY - 3);
+         context.getMatrices().scale(1.6F, 1.6F);
+         GuiStyle.text(context, this.textRenderer, pageTitle, 0, 0, (int)(a255) << 24 | 0x00FFFFFF);
+         context.getMatrices().popMatrix();
+      } else {
+         GuiStyle.text(context, this.textRenderer, pageTitle, x, headerY, (int)(a255) << 24 | (primary & 0x00FFFFFF));
+      }
 
       int searchPillW = Math.min(240, width / 3);
       int searchPillH = 20;
@@ -1628,7 +2027,7 @@ public class ClickGuiScreen extends Screen {
       }
 
       int chipCursor = x;
-      for (int ci = 0; ci < MODULE_CATEGORIES.length; ci++) {
+      for (int ci = 0; ci < MODULE_CATEGORIES.length && !GuiStyle.square(); ci++) {
          String cat = MODULE_CATEGORIES[ci];
          int cw = GuiStyle.chipWidth(this.textRenderer, cat);
          boolean hov = GuiStyle.inRect(mouseX, mouseY, chipCursor, chipsRowY, cw, 16);
@@ -1639,28 +2038,38 @@ public class ClickGuiScreen extends Screen {
 
       // ---- Module cards: single column, rounded, scroll-clipped.
       int listStartY = chipsRowY + 22;
-      int cardGap = 8;
-      int cardH = 44;
+      int cardGap = GuiStyle.square() ? 6 : 8;
+      int cardH = GuiStyle.square() ? Math.max(34, (Math.max(60, contentBottom - listStartY) - 6 * cardGap) / 7) : 44;
+      this.moduleCardH = cardH;
       List<ClickGuiScreen.ModuleInfo> visible = this.getVisibleModules();
-      int cardW = width;
+      int cols = GuiStyle.cool() ? 2 : 1;
+      int cardW = (width - (GuiStyle.square() ? 6 : 0) - (cols - 1) * cardGap) / cols;
+      this.moduleCardW = cardW;
 
-      // Position animation pass (slide into their ordered slots).
-      int slotY = listStartY - this.scrollOffset;
+      // Position animation pass (slide into their ordered slots); an open settings dropdown pushes the rows below it down.
+      int ownerIdx = this.inlineSettings != null ? visible.indexOf(this.inlineOwner) : -1;
+      if (this.inlineSettings != null && ownerIdx < 0) this.closeInlineSettings();
+      int ownerRow = ownerIdx >= 0 ? ownerIdx / cols : 0;
+      int extra = ownerIdx >= 0 ? this.inlinePanelH() + 4 : 0;
+      if (ownerIdx >= 0) {
+         this.inlineX = x;
+         this.inlineW = width;
+         this.inlineY = listStartY - this.scrollOffset + ownerRow * (cardH + cardGap) + cardH + 4;
+      }
+
       int idx = 0;
 
       for (ClickGuiScreen.ModuleInfo m : visible) {
          m.searchAnimationProgress = Math.min(1.0F, m.searchAnimationProgress + 0.15F);
-         float targetY = slotY;
-         if (m.currentX != (float)x || m.currentY == -1.0F) {
-            if (m.currentY == -1.0F) {
-               m.currentX = x;
-               m.currentY = targetY;
-            }
+         float targetX = x + idx % cols * (cardW + cardGap);
+         float targetY = listStartY - this.scrollOffset + idx / cols * (cardH + cardGap) + (ownerIdx >= 0 && idx / cols > ownerRow ? extra : 0);
+         if (m.currentY == -1.0F) {
+            m.currentX = targetX;
+            m.currentY = targetY;
          }
 
-         m.currentX = m.currentX + (x - m.currentX) * 0.3F;
+         m.currentX = m.currentX + (targetX - m.currentX) * 0.3F;
          m.currentY = m.currentY + (targetY - m.currentY) * 0.3F;
-         slotY += cardH + cardGap;
          idx++;
       }
 
@@ -1676,7 +2085,7 @@ public class ClickGuiScreen extends Screen {
          GuiStyle.text(context, this.textRenderer, msg, x + width / 2 - this.textRenderer.getWidth(msg) / 2, listStartY + 30, (int)(alpha * 120.0F) << 24 | 0x00FFFFFF);
       }
 
-      int totalListH = visible.size() * (cardH + cardGap);
+      int totalListH = (visible.size() + cols - 1) / cols * (cardH + cardGap) + extra;
       int visibleH = Math.max(60, contentBottom - listStartY);
       this.maxScrollOffset = Math.max(0, totalListH - visibleH);
       if (this.maxScrollOffset == 0) {
@@ -1687,7 +2096,13 @@ public class ClickGuiScreen extends Screen {
          this.scrollOffset = Math.max(0, Math.min(this.maxScrollOffset, this.scrollOffset));
       }
 
-      for (ClickGuiScreen.ModuleInfo module : visible) {
+      List<ClickGuiScreen.ModuleInfo> drawList = new ArrayList<>(visible);
+      for (ClickGuiScreen.ModuleInfo fm : this.modules) {
+         if (!visible.contains(fm) && fm.searchAnimationProgress > 0.01F && fm.currentY != -1.0F) drawList.add(fm);
+      }
+
+      context.enableScissor(x - 2, listStartY, x + width + 4, contentBottom);
+      for (ClickGuiScreen.ModuleInfo module : drawList) {
          if (module.searchAnimationProgress <= 0.01F) continue;
          float modAlpha = alpha * module.searchAnimationProgress;
          int cX = (int)module.currentX;
@@ -1702,30 +2117,38 @@ public class ClickGuiScreen extends Screen {
          int borderCol;
          int bgCol;
          if (module.enabled) {
-            borderCol = (int)(modAlpha * (190 + module.hoverProgress * 65.0F)) << 24 | (primary & 0x00FFFFFF);
-            bgCol = (int)(alphaInt * 0.9F) << 24 | GuiStyle.blend(0x151020, primary, 0.10F);
+            borderCol = (int)(modAlpha * ((GuiStyle.cool() ? 80 : 190) + module.hoverProgress * 65.0F)) << 24 | (primary & 0x00FFFFFF);
+            bgCol = (int)(alphaInt * 0.9F) << 24 | GuiStyle.blend(GuiStyle.pal(0x151020), primary, 0.10F);
          } else if (isHovered) {
             borderCol = (int)(modAlpha * 130.0F) << 24 | 0x00FFFFFF;
-            bgCol = (int)(alphaInt * 0.9F) << 24 | 0x1D1826;
+            bgCol = (int)(alphaInt * 0.9F) << 24 | GuiStyle.pal(0x1D1826);
          } else {
             borderCol = (int)(modAlpha * 42.0F) << 24 | 0x00FFFFFF;
-            bgCol = (int)(alphaInt * 0.9F) << 24 | 0x161220;
+            bgCol = (int)(alphaInt * 0.9F) << 24 | GuiStyle.pal(0x161220);
          }
 
-         GuiStyle.roundedBordered2(context, cX, drawY, cardW, cardH, 12, bgCol, borderCol);
+         if (GuiStyle.square()) {
+            GuiStyle.roundedBordered2(context, cX, drawY, cardW, cardH, 4, (int)(alphaInt * 0.85F) << 24 | (module.enabled ? GuiStyle.blend(0x12151C, primary, 0.10F) : isHovered ? 0x1A1E28 : 0x12151C), (module.enabled ? (int)(modAlpha * 150.0F) << 24 | (primary & 0x00FFFFFF) : (int)(modAlpha * (isHovered ? 90.0F : 34.0F)) << 24 | 0x00FFFFFF));
+         } else {
+            GuiStyle.roundedBordered2(context, cX, drawY, cardW, cardH, 12, bgCol, borderCol);
+         }
+
+         if (GuiStyle.cool() && module.enabled) {
+            GuiStyle.roundedRect(context, cX + 5, drawY + 12, 3, cardH - 24, 1, alphaInt << 24 | (primary & 0x00FFFFFF));
+         }
 
          // Name + description (ellipsized so nothing sticks out of the card).
          int nameX = cX + 16;
          int nameCol = module.enabled ? (int)(modAlpha * 255.0F) << 24 | (primary & 0x00FFFFFF) : (int)(modAlpha * 235.0F) << 24 | 0x00FFFFFF;
-         int maxNameW = Math.max(1, cardW - 170);
+         int maxNameW = Math.max(1, cardW - (GuiStyle.square() ? 150 : !GuiStyle.cool() ? 170 : isHovered && module.resetHudPosition != null ? 130 : 84));
          String nameTxt = module.name;
          while (this.textRenderer.getWidth(nameTxt) > maxNameW && nameTxt.length() > 1) {
             nameTxt = nameTxt.substring(0, nameTxt.length() - 1);
          }
 
-         GuiStyle.text(context, this.textRenderer, nameTxt, nameX, drawY + 8, nameCol);
+         GuiStyle.text(context, this.textRenderer, nameTxt, nameX, drawY + (GuiStyle.square() ? (cardH - 22) / 2 : 8), nameCol);
          String subtitle = module.description.isEmpty() ? (module.openSettings != null ? "Right click to configure" : "Utility module") : module.description;
-         int maxDescW = Math.max(1, cardW - 170);
+         int maxDescW = Math.max(1, cardW - (GuiStyle.square() ? 150 : !GuiStyle.cool() ? 170 : isHovered && module.resetHudPosition != null ? 130 : 84));
          int descCol = (int)(modAlpha * 140.0F) << 24 | 0x00FFFFFF;
          String desc = subtitle;
 
@@ -1737,13 +2160,13 @@ public class ClickGuiScreen extends Screen {
             desc = desc.substring(0, Math.max(1, desc.length() - 1)).trim() + "…";
          }
 
-         GuiStyle.text(context, this.textRenderer, desc, nameX, drawY + 20, descCol);
+         GuiStyle.text(context, this.textRenderer, desc, nameX, drawY + (GuiStyle.square() ? (cardH - 22) / 2 + 13 : 20), descCol);
 
-         // Reset pill (only for movable HUD modules).
-         if (module.resetHudPosition != null) {
+         // Reset pill (only for movable HUD modules; hover-only in Cool).
+         if (module.resetHudPosition != null && (isHovered || (!GuiStyle.cool() && !GuiStyle.square()))) {
             int rW = 42;
             int rH = 16;
-            int rX = cX + cardW - rW - 154;
+            int rX = cX + cardW - rW - (GuiStyle.cool() ? 66 : GuiStyle.square() ? 70 : 154);
             int rY = drawY + (cardH - rH) / 2;
             boolean rHov = isHovered && mouseX >= rX && mouseX <= rX + rW && mouseY >= rY && mouseY <= rY + rH;
             GuiStyle.roundedBordered(
@@ -1761,7 +2184,14 @@ public class ClickGuiScreen extends Screen {
 
          // Toggle (knob position shows state; no ON/OFF text).
          GuiStyle.toggleSwitch(context, cX + cardW - 58, drawY + (cardH - 16) / 2, 40, 16, module.enabled, module.enabled ? 1.0F : 0.0F, primary, modAlpha);
+         if (GuiStyle.square() && module.openSettings != null) {
+            boolean chHov = isHovered && mouseX >= cX + cardW - 18;
+            GuiStyle.text(context, this.textRenderer, this.inlineOwner == module ? "‹" : "›", cX + cardW - 12, drawY + (cardH - 8) / 2, (int)(modAlpha * (chHov ? 255.0F : 150.0F)) << 24 | (chHov ? primary & 0x00FFFFFF : 0x00FFFFFF));
+         }
       }
+
+      context.disableScissor();
+      this.renderInlineSettings(context, mouseX, mouseY, listStartY, contentBottom);
 
       // Scrollbar on the far right of the list.
       if (this.maxScrollOffset > 0) {
@@ -1814,8 +2244,21 @@ public class ClickGuiScreen extends Screen {
       }
    }
 
+   private static final java.util.Set<String> PAGE_TITLES = java.util.Set.of(
+      "Global Settings", "Screenshots", "Backgrounds", "Friends", "Config", "Statistics", "Notes", "Calculator", "Player Model", "Configurations"
+   );
+
    private void drawGlowText(DrawContext context, String text, int x, int y, int color, float alpha) {
       int a = (int)(alpha * 255.0F);
+      if (GuiStyle.square() && PAGE_TITLES.contains(text)) {
+         context.getMatrices().pushMatrix();
+         context.getMatrices().translate(x, y - 3);
+         context.getMatrices().scale(1.6F, 1.6F);
+         GuiStyle.text(context, this.textRenderer, text, 0, 0, a << 24 | 0x00FFFFFF);
+         context.getMatrices().popMatrix();
+         return;
+      }
+
       int c = a << 24 | color & 16777215;
       context.drawTextWithShadow(this.textRenderer, Text.literal(text), x, y, c);
    }
@@ -1829,7 +2272,7 @@ public class ClickGuiScreen extends Screen {
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("No screenshots found in screenshots folder"), x + width / 2, y + 60, textColor);
          }
       } else {
-         int maxAvailableHeight = this.height - y - 20;
+         int maxAvailableHeight = (GuiStyle.square() ? this.windowY + this.windowH : this.height) - y - 20;
          if (maxAvailableHeight < 150) {
             maxAvailableHeight = 150;
          }
@@ -1871,8 +2314,14 @@ public class ClickGuiScreen extends Screen {
             copyColor,
             alpha > 0.3F ? Math.min(1.0F, (alpha - 0.3F) / 0.7F) : 0.0F
          );
+         int halfW = previewWidth / 2 - 3;
          this.renderScreenshotDeleteButton(
-            context, mouseX, mouseY, previewX, deleteButtonY, previewWidth, deleteButtonHeight, this.getSelectedScreenshot(), alpha
+            context, mouseX, mouseY, previewX, deleteButtonY, halfW, deleteButtonHeight, this.getSelectedScreenshot(), alpha
+         );
+         boolean editHov = mouseX >= previewX + previewWidth - halfW && mouseX <= previewX + previewWidth && mouseY >= deleteButtonY && mouseY <= deleteButtonY + deleteButtonHeight;
+         this.renderBackgroundButton(
+            context, mouseX, mouseY, previewX + previewWidth - halfW, deleteButtonY, halfW, deleteButtonHeight, "Edit",
+            editHov ? -12285185 : -13415446, alpha > 0.3F ? Math.min(1.0F, (alpha - 0.3F) / 0.7F) : 0.0F
          );
       }
    }
@@ -1926,6 +2375,9 @@ public class ClickGuiScreen extends Screen {
             -26624,
             textAlpha
          );
+         this.renderBackgroundButton(
+            context, mouseX, mouseY, x + (buttonWidth + buttonSpacing) * 2, buttonY + buttonHeight + buttonSpacing, buttonWidth, buttonHeight, "Editor", -10185235, textAlpha
+         );
       }
 
       if (this.backgroundFiles.isEmpty()) {
@@ -1935,7 +2387,7 @@ public class ClickGuiScreen extends Screen {
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("No background files found"), x + width / 2, y + 80, textColor);
          }
       } else {
-         int maxAvailableHeight = this.height - y - 20;
+         int maxAvailableHeight = (GuiStyle.square() ? this.windowY + this.windowH : this.height) - y - 20;
          if (maxAvailableHeight < 150) {
             maxAvailableHeight = 150;
          }
@@ -2049,7 +2501,7 @@ public class ClickGuiScreen extends Screen {
          int previewAreaX = x + 10;
          int previewAreaY = y + 35;
          int previewAreaWidth = width - 20;
-         int previewAreaHeight = height - 100;
+         int previewAreaHeight = GuiStyle.square() ? height - 74 : height - 100;
          Identifier textureId = this.loadScreenshotTexture(screenshot);
          if (textureId != null) {
             try {
@@ -2058,7 +2510,7 @@ public class ClickGuiScreen extends Screen {
                int imageWidth = dimensions[0];
                int imageHeight = dimensions[1];
                if (imageWidth > 0 && imageHeight > 0) {
-                  int imageMargin = 10;
+                  int imageMargin = GuiStyle.square() ? 3 : 10;
                   int maxImageWidth = previewAreaWidth - imageMargin * 2;
                   int maxImageHeight = previewAreaHeight - imageMargin * 2;
                   float aspectRatio = (float)imageWidth / imageHeight;
@@ -2526,6 +2978,8 @@ public class ClickGuiScreen extends Screen {
    private void renderAnimatedGlobalSettingsTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
       this.drawGlowText(context, "Global Settings", x, y, this.primaryColor, alpha);
       int cardY = y + 40 - this.scrollOffset;
+      // Clip scrolling cards below the title so they never draw over it.
+      context.enableScissor(x - 8, y + 22, x + width + 8, this.windowY + this.windowH - 14);
       this.renderAnimatedThemePickerCard(context, mouseX, mouseY, x, cardY, width - 20, alpha);
       cardY += 165;
       this.renderAnimatedModuleSettingsCard(context, mouseX, mouseY, x, cardY, width - 20, alpha);
@@ -2537,6 +2991,7 @@ public class ClickGuiScreen extends Screen {
       this.renderAnimatedCritEffectsCard(context, mouseX, mouseY, x, cardY, width - 20, alpha);
       cardY += 66;
       this.renderAnimatedSafeModeCard(context, mouseX, mouseY, x, cardY, width - 20, alpha);
+      context.disableScissor();
    }
 
    private void renderAnimatedSafeModeCard(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
@@ -2547,7 +3002,7 @@ public class ClickGuiScreen extends Screen {
       int textColor = (int)(textAlpha * 235.0F) << 24 | 0x00FFFFFF;
       int subColor = (int)(textAlpha * 120.0F) << 24 | 0x00FFFFFF;
       this.drawGlowText(context, "Safe Mode", x + 12, y + 12, this.primaryColor, textAlpha);
-      GuiStyle.text(context, this.textRenderer, "Locks Health Indicators, Name Tag Items and Target HUD off", x + 12, y + 26, subColor);
+      GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis("Locks Health Indicators, Name Tag Items and Target HUD off", width - 84), x + 12, y + 26, subColor);
 
       int toggleX = x + width - 58;
       GuiStyle.toggleSwitch(context, toggleX, y + 12, 40, 16, VoidCyanClient.safeModeEnabled, VoidCyanClient.safeModeEnabled ? 1.0F : 0.0F, this.primaryColor, textAlpha);
@@ -2646,7 +3101,7 @@ public class ClickGuiScreen extends Screen {
 
       int sliderY = y + 130;
       String label = "Sign Text Distance: " + OptimizeManager.signTextDistance + " blocks";
-      context.drawTextWithShadow(this.textRenderer, Text.literal(label), x + 12, sliderY - 5, textColor);
+      context.drawTextWithShadow(this.textRenderer, Text.literal(label), x + 12, sliderY - 9, textColor);
       float ratio = (OptimizeManager.signTextDistance - 1) / 127.0F;
       boolean sliderHover = GuiStyle.inRect(mouseX, mouseY, x + 12, sliderY + 2, 250, 14);
       GuiStyle.slider(context, x + 12, sliderY + 6, 250, ratio, this.primaryColor, textAlpha, sliderHover);
@@ -2655,7 +3110,7 @@ public class ClickGuiScreen extends Screen {
    private boolean listeningForEditGuiKey = false;
 
    private void renderAnimatedModuleSettingsCard(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
-      int height = 140;
+      int height = 124;
       this.drawAnimatedCard(context, x, y, width, height, this.primaryColor, 0.6F, alpha);
       if (!(alpha < 0.3F)) {
          float textAlpha = Math.min(1.0F, (alpha - 0.3F) / 0.7F);
@@ -2667,7 +3122,7 @@ public class ClickGuiScreen extends Screen {
          context.drawTextWithShadow(this.textRenderer, Text.literal(label), x + 12, sliderY - 5, textColor);
          int trackY = sliderY + 8;
          int trackHeight = 6;
-         context.fill(x + 12, trackY, x + 12 + sliderWidth, trackY + trackHeight, (int)(alpha * 100.0F) << 24 | 4210752);
+         context.fill(x + 12, trackY, x + 12 + sliderWidth, trackY + trackHeight, GuiStyle.square() ? (int)(alpha * 255.0F) << 24 | 0x1E232D : (int)(alpha * 100.0F) << 24 | 4210752);
          float fillRatio = VoidCyanClient.guiAnimationDurationMs / 2000.0F;
          int fillWidth = (int)(sliderWidth * fillRatio * alpha);
          int fillColor = (int)(alpha * 255.0F) << 24 | this.primaryColor & 16777215;
@@ -2679,7 +3134,7 @@ public class ClickGuiScreen extends Screen {
          String scaleLabel = String.format("Click GUI Scale: %.1fx (syncs with GUI Scale video setting)", VoidCyanClient.clickGuiScale);
          context.drawTextWithShadow(this.textRenderer, Text.literal(scaleLabel), x + 12, scaleSliderY - 5, textColor);
          int scaleTrackY = scaleSliderY + 8;
-         context.fill(x + 12, scaleTrackY, x + 12 + sliderWidth, scaleTrackY + trackHeight, (int)(alpha * 100.0F) << 24 | 4210752);
+         context.fill(x + 12, scaleTrackY, x + 12 + sliderWidth, scaleTrackY + trackHeight, GuiStyle.square() ? (int)(alpha * 255.0F) << 24 | 0x1E232D : (int)(alpha * 100.0F) << 24 | 4210752);
          float scaleFillRatio = (VoidCyanClient.clickGuiScale - 0.5F) / 1.5F;
          int scaleFillWidth = (int)(sliderWidth * scaleFillRatio * alpha);
          context.fill(x + 12, scaleTrackY + 1, x + 12 + scaleFillWidth, scaleTrackY + trackHeight - 1, fillColor);
@@ -2687,9 +3142,10 @@ public class ClickGuiScreen extends Screen {
          context.fill(scaleHandleX, scaleTrackY - 1, scaleHandleX + handleSize, scaleTrackY + trackHeight + 1, (int)(alpha * 255.0F) << 24 | 16777215);
          int btnY = y + 85;
          boolean typeHovered = mouseX >= x + 12 && mouseX <= x + 12 + sliderWidth && mouseY >= btnY && mouseY <= btnY + 16;
-         int btnColor = typeHovered ? (int)(alpha * 255.0F) << 24 | 3355443 : (int)(alpha * 255.0F) << 24 | 2236962;
+         int btnColor = typeHovered ? (int)(alpha * 255.0F) << 24 | (GuiStyle.square() ? 0x222836 : 3355443) : (int)(alpha * 255.0F) << 24 | (GuiStyle.square() ? 0x161A22 : 2236962);
          context.fill(x + 12, btnY, x + 12 + sliderWidth, btnY + 16, btnColor);
-         String typeLabel = "GUI Type: " + (VoidCyanClient.guiType == 0 ? "Square" : "Dropdown");
+         if (GuiStyle.square()) context.fill(x + 12, btnY, x + 12 + 2, btnY + 16, (int)(alpha * 255.0F) << 24 | (this.primaryColor & 0xFFFFFF));
+         String typeLabel = "GUI Type: " + (new String[]{"Square", "Cool", "Orbit"}[VoidCyanClient.guiType]);
          context.drawTextWithShadow(this.textRenderer, Text.literal(typeLabel), x + 16, btnY + 4, textColor);
          // Edit GUI Keybind row
          int keyBtnY = y + 107;
@@ -2748,7 +3204,7 @@ public class ClickGuiScreen extends Screen {
          int btn1H = 16;
          boolean rgbHovered = mouseX >= btn1X && mouseX <= btn1X + btn1W && mouseY >= btn1Y && mouseY <= btn1Y + btn1H;
          int rgbBg = VoidCyanClient.rgbChromaEnabled ? (int)(textAlpha * 180.0F) << 24 | (this.primaryColor & 16777215)
-                                                     : (rgbHovered ? (int)(textAlpha * 120.0F) << 24 | 3355443 : (int)(textAlpha * 80.0F) << 24 | 2236962);
+                                                     : (rgbHovered ? (int)(textAlpha * 255.0F) << 24 | (GuiStyle.square() ? 0x222836 : 3355443) : (int)(textAlpha * (GuiStyle.square() ? 255.0F : 80.0F)) << 24 | (GuiStyle.square() ? 0x161A22 : 2236962));
          context.fill(btn1X, btn1Y, btn1X + btn1W, btn1Y + btn1H, rgbBg);
          this.drawGlowingBorder(context, btn1X, btn1Y, btn1W, btn1H, this.primaryColor, textAlpha * (VoidCyanClient.rgbChromaEnabled ? 0.8F : 0.4F));
          String rgbText = "1. RGB: " + (VoidCyanClient.rgbChromaEnabled ? "ON" : "OFF");
@@ -2760,7 +3216,7 @@ public class ClickGuiScreen extends Screen {
          int btn2W = 145;
          int btn2H = 16;
          boolean themeHovered = mouseX >= btn2X && mouseX <= btn2X + btn2W && mouseY >= btn2Y && mouseY <= btn2Y + btn2H;
-         int themeBg = themeHovered ? (int)(textAlpha * 120.0F) << 24 | 3355443 : (int)(textAlpha * 80.0F) << 24 | 2236962;
+         int themeBg = themeHovered ? (int)(textAlpha * 255.0F) << 24 | (GuiStyle.square() ? 0x222836 : 3355443) : (int)(textAlpha * (GuiStyle.square() ? 255.0F : 80.0F)) << 24 | (GuiStyle.square() ? 0x161A22 : 2236962);
          context.fill(btn2X, btn2Y, btn2X + btn2W, btn2Y + btn2H, themeBg);
          this.drawGlowingBorder(context, btn2X, btn2Y, btn2W, btn2H, this.primaryColor, textAlpha * 0.4F);
          String themeText = "2. < " + VoidCyanClient.colorTheme + " >";
@@ -2773,7 +3229,7 @@ public class ClickGuiScreen extends Screen {
          int speedTrackX = x + 95;
          int speedTrackY = speedY + 4;
          int speedTrackW = 165;
-         context.fill(speedTrackX, speedTrackY, speedTrackX + speedTrackW, speedTrackY + 6, (int)(textAlpha * 100.0F) << 24 | 4210752);
+         context.fill(speedTrackX, speedTrackY, speedTrackX + speedTrackW, speedTrackY + 6, GuiStyle.square() ? (int)(textAlpha * 255.0F) << 24 | 0x1E232D : (int)(textAlpha * 100.0F) << 24 | 4210752);
          float speedRatio = (VoidCyanClient.rgbSpeed - 1) / 9.0F;
          int speedFillW = (int)(speedTrackW * speedRatio);
          context.fill(speedTrackX, speedTrackY + 1, speedTrackX + speedFillW, speedTrackY + 5, (int)(textAlpha * 255.0F) << 24 | (this.primaryColor & 16777215));
@@ -2789,6 +3245,7 @@ public class ClickGuiScreen extends Screen {
          int leftHalfW = pickerW / 2 - 4;
          context.fill(pickerX, pickerY, pickerX + leftHalfW, pickerY + pickerH, picked);
          this.drawGlowingBorder(context, pickerX, pickerY, leftHalfW, pickerH, this.primaryColor, textAlpha * 0.5F);
+         if (GuiStyle.square()) GuiStyle.roundedOutline(context, pickerX - 1, pickerY - 1, leftHalfW + 2, pickerH + 2, 0, 0xFF2A303C);
          String pickLbl = "Click to edit";
          GuiStyle.textCentered(context, this.textRenderer, pickLbl, pickerX + leftHalfW / 2, pickerY + pickerH / 2 - 4, (int)(textAlpha * 220.0F) << 24 | 0x00FFFFFF);
          String hint2 = "HEX " + String.format("#%02X%02X%02X", this.colorPickerR, this.colorPickerG, this.colorPickerB);
@@ -2801,6 +3258,7 @@ public class ClickGuiScreen extends Screen {
             int pc = ColorPickerModal.PRESETS[pi];
             int px2 = half2X + pi * (ps + 6);
             context.fill(px2, pickerY, px2 + ps, pickerY + pickerH, pc);
+            if (GuiStyle.square()) GuiStyle.roundedOutline(context, px2 - 1, pickerY - 1, ps + 2, pickerH + 2, 0, 0xFF2A303C);
             if (pc == presetStart) {
                this.drawGlowingBorder(context, px2, pickerY, ps, pickerH, this.primaryColor, textAlpha * 0.8F);
             }
@@ -2827,6 +3285,17 @@ public class ClickGuiScreen extends Screen {
             Math.min(1.0F, alpha * 2.0F);
          } else {
             float var10000 = 0.0F;
+         }
+
+         if (GuiStyle.square()) {
+            int a = (int)(alpha * 255.0F);
+            context.fill(x, y, x + width, y + 20, a << 24 | (isHovered ? 0x1A1F2A : 0x12151C));
+            context.fill(x, y, x + width, y + 1, a << 24 | 0x1D212B);
+            context.fill(x, y + 19, x + width, y + 20, a << 24 | 0x1D212B);
+            if (isHovered) context.fill(x, y, x + 2, y + 20, a << 24 | (this.primaryColor & 0xFFFFFF));
+            context.drawTextWithShadow(this.textRenderer, Text.literal(label.replace(" ->", "")), x + 10, y + 6, a << 24 | 0xE6EAF2);
+            context.drawTextWithShadow(this.textRenderer, Text.literal("\u203a"), x + width - 14, y + 6, a << 24 | (isHovered ? (this.primaryColor & 0xFFFFFF) : 0x6E7686));
+            return;
          }
 
          int bgColor = isHovered ? (int)(alpha * 100.0F) << 24 | this.primaryColor & 16777215 : (int)(alpha * 50.0F) << 24 | 16777215;
@@ -3079,7 +3548,7 @@ public class ClickGuiScreen extends Screen {
             int totalFriendsHeight = this.friends.size() * 45;
             int visibleFriendsHeight = this.height - listStartY - 20;
             return Math.max(0, totalFriendsHeight - visibleFriendsHeight);
-         } else if (this.currentTab == 8) {
+         } else if (this.currentTab == 7 && this.extrasSubTab == 0) {
             int inputFieldH = 40;
             int resultH = 45;
             int buttonRows = 5;
@@ -3129,6 +3598,8 @@ public class ClickGuiScreen extends Screen {
 
                this.calculatorInput = this.insertString(this.calculatorInput, typedText, 128);
             }
+         } else if (this.isRecipeSearchFocused) {
+            this.recipeSearch = this.insertString(this.recipeSearch, typedText, 48);
          } else if (this.isNoteTitleFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
             NoteManager.notes.get(this.selectedNoteIndex).title = this.insertString(NoteManager.notes.get(this.selectedNoteIndex).title, typedText, 64);
          } else if (this.isNoteContentFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
@@ -3141,11 +3612,102 @@ public class ClickGuiScreen extends Screen {
          return super.charTyped(input);
       }
    }
+   private BaseSettingsScreen inlineSettings;
+   private ClickGuiScreen.ModuleInfo inlineOwner;
+   private ClickGuiScreen.ModuleInfo suppressOpen;
+   private int inlineX;
+   private int inlineY;
+   private int inlineW;
+
+   /** Cool profile: a module's settings drop down under its card instead of opening a separate screen. */
+   private void openModuleSettings(ClickGuiScreen.ModuleInfo m, int x, int y, int w, int h) {
+      if (m == this.suppressOpen) {
+         this.suppressOpen = null;
+         return;
+      }
+
+      if (!GuiStyle.cool()) {
+         m.openSettings.run();
+         return;
+      }
+
+      BaseSettingsScreen.captureActive = true;
+      BaseSettingsScreen.captured = null;
+      try {
+         m.openSettings.run();
+      } finally {
+         BaseSettingsScreen.captureActive = false;
+      }
+
+      BaseSettingsScreen b = BaseSettingsScreen.captured;
+      BaseSettingsScreen.captured = null;
+      if (b == null) return;
+      b.init(this.width, this.height);
+      this.inlineSettings = b;
+      this.inlineOwner = m;
+   }
+
+   private int inlinePanelH() {
+      return this.inlineSettings.inlineHeight() + 26;
+   }
+
+   private void closeInlineSettings() {
+      if (this.inlineSettings != null) VoidCyanClient.saveConfig();
+      this.inlineSettings = null;
+      this.inlineOwner = null;
+   }
+
+   private void renderInlineSettings(DrawContext context, int mx, int my, int clipTop, int clipBottom) {
+      if (this.inlineSettings == null) return;
+      int primary = VoidCyanClient.getPrimaryColor() & 0xFFFFFF;
+      int x = this.inlineX;
+      int y = this.inlineY;
+      int w = this.inlineW;
+      int h = this.inlinePanelH();
+      context.enableScissor(x - 4, clipTop, x + w + 4, clipBottom);
+      GuiStyle.roundedBordered(context, x, y, w, h, 8, 0xF2120E1A, 0xC8000000 | primary);
+      GuiStyle.text(context, this.textRenderer, this.inlineOwner.name + " settings", x + 10, y + 7, 0xFF000000 | primary);
+      GuiStyle.text(context, this.textRenderer, "\u2715", x + w - 16, y + 7, 0xFFFFFFFF);
+      this.inlineSettings.renderInline(context, x, y + 22, w, mx, my);
+      context.disableScissor();
+   }
+
+   private boolean handleInlineClick(double mx, double my) {
+      int h = this.inlinePanelH();
+      if (!GuiStyle.inRect(mx, my, this.inlineX, this.inlineY, this.inlineW, h)) {
+         this.suppressOpen = this.inlineOwner;
+         this.closeInlineSettings();
+         return false;
+      }
+
+      if (my < this.inlineY + 22) {
+         if (mx > this.inlineX + this.inlineW - 24) this.closeInlineSettings();
+         return true;
+      }
+
+      this.inlineSettings.clickInline(mx, my, this.inlineX, this.inlineY + 22, this.inlineW);
+      ColorPickerModal picker = this.inlineSettings.takeColorModal();
+      if (picker != null) this.colorModal = picker;
+      return true;
+   }
+
    public boolean keyPressed(KeyInput input) {
 
       if (this.colorModal != null && this.colorModal.keyPressed(input)) {
          if (!this.colorModal.isOpen()) this.colorModal = null;
          return true;
+      }
+
+      if (this.inlineSettings != null) {
+         if (this.inlineSettings.wantsKeys()) {
+            this.inlineSettings.keyPressed(input);
+            return true;
+         }
+
+         if (input.key() == 256) {
+            this.closeInlineSettings();
+            return true;
+         }
       }
       // Capture Edit GUI keybind
       if (this.listeningForEditGuiKey) {
@@ -3242,6 +3804,8 @@ public class ClickGuiScreen extends Screen {
                   this.configNameInput = this.removeLastCharacter(this.configNameInput);
                } else if (this.isCalculatorInputFocused) {
                   this.calculatorInput = this.removeLastCharacter(this.calculatorInput);
+               } else if (this.isRecipeSearchFocused) {
+                  this.recipeSearch = this.removeLastCharacter(this.recipeSearch);
                } else if (this.isNoteTitleFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
                   NoteManager.notes.get(this.selectedNoteIndex).title = this.removeLastCharacter(NoteManager.notes.get(this.selectedNoteIndex).title);
                } else if (this.isNoteContentFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
@@ -3286,7 +3850,8 @@ public class ClickGuiScreen extends Screen {
          || this.isConfigNameFocused
          || this.isNoteTitleFocused
          || this.isNoteContentFocused
-         || this.isCalculatorInputFocused;
+         || this.isCalculatorInputFocused
+         || this.isRecipeSearchFocused;
    }
 
    private void clearTextFocus() {
@@ -3297,6 +3862,7 @@ public class ClickGuiScreen extends Screen {
       this.isNoteTitleFocused = false;
       this.isNoteContentFocused = false;
       this.isCalculatorInputFocused = false;
+      this.isRecipeSearchFocused = false;
       this.textCursor = 0;
    }
 
@@ -3339,6 +3905,8 @@ public class ClickGuiScreen extends Screen {
          return this.configNameInput;
       } else if (this.isCalculatorInputFocused) {
          return this.calculatorInput;
+      } else if (this.isRecipeSearchFocused) {
+         return this.recipeSearch;
       } else if (this.isNoteTitleFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
          return NoteManager.notes.get(this.selectedNoteIndex).title;
       } else {
@@ -3363,6 +3931,8 @@ public class ClickGuiScreen extends Screen {
          this.configNameInput = text;
       } else if (this.isCalculatorInputFocused) {
          this.calculatorInput = text;
+      } else if (this.isRecipeSearchFocused) {
+         this.recipeSearch = text;
       } else if (this.isNoteTitleFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
          NoteManager.notes.get(this.selectedNoteIndex).title = text;
       } else if (this.isNoteContentFocused && this.selectedNoteIndex >= 0 && this.selectedNoteIndex < NoteManager.notes.size()) {
@@ -3418,6 +3988,16 @@ public class ClickGuiScreen extends Screen {
       }
       double mouseX = GuiScaleManager.toLogical((double)click.x());
       double mouseY = GuiScaleManager.toLogical((double)click.y());
+      this.suppressOpen = null;
+      if (this.inlineSettings != null && this.handleInlineClick(mouseX, mouseY)) {
+         return true;
+      }
+
+      if (GuiStyle.orbitSkin && click.button() == 0 && GuiStyle.inRect(mouseX, mouseY, this.windowX + this.windowW - 66, this.windowY + 8, 58, 16)) {
+         this.close();
+         return true;
+      }
+
       int button = click.button();
       if (button == 0 || button == 1) {
          int winX = this.windowX;
@@ -3426,7 +4006,35 @@ public class ClickGuiScreen extends Screen {
          int winH = this.windowH;
 
          // ---- Sidebar interactions (left click only).
-         if (button == 0 && mouseX >= winX && mouseX <= winX + GuiStyle.SIDEBAR_W && mouseY >= winY && mouseY <= winY + winH) {
+         if (!GuiStyle.orbitSkin && button == 0 && mouseX >= winX && mouseX <= winX + GuiStyle.SIDEBAR_W && mouseY >= winY && mouseY <= winY + winH) {
+            if (GuiStyle.square()) {
+               for (int ci = 0; ci < MODULE_CATEGORIES.length; ci++) {
+                  if (GuiStyle.inRect(mouseX, mouseY, winX + 8, winY + SQ_CAT_TOP + ci * this.sqCatStep(winH), GuiStyle.SIDEBAR_W - 16, 23)) {
+                     this.clearTextFocus();
+                     this.selectedModuleCategory = MODULE_CATEGORIES[ci];
+                     this.scrollOffset = 0;
+                     this.targetScrollOffset = 0;
+                     this.targetTab = 0;
+                     return true;
+                  }
+               }
+
+               for (int ti = 1; ti < this.tabNames.length; ti++) {
+                  if (GuiStyle.inRect(mouseX, mouseY, this.sqBtnX(winX, ti), this.sqBtnY(winY, winH), 15, 15)) {
+                     this.clearTextFocus();
+                     if (ti != 7) {
+                        this.selectedNoteIndex = -1;
+                        this.noteContentScrollOffset = 0;
+                     }
+
+                     this.targetTab = ti;
+                     return true;
+                  }
+               }
+
+               return true;
+            }
+
             // Profile card discord link (right half of the card, below the MC line).
             int cardBottom = winY + winH - 12;
             int cardY = cardBottom - 72;
@@ -3451,11 +4059,6 @@ public class ClickGuiScreen extends Screen {
                int relY = (int)((mouseY - tabStartY) % tabSpacing);
                if (tabIndex >= 0 && tabIndex < this.tabNames.length && relY <= tabH) {
                   this.clearTextFocus();
-                  if (tabIndex == 9) {
-                     this.client.setScreen(new TextureMakerScreen(this));
-                     return true;
-                  }
-
                   if (tabIndex != 7) {
                      this.selectedNoteIndex = -1;
                      this.noteContentScrollOffset = 0;
@@ -3470,9 +4073,9 @@ public class ClickGuiScreen extends Screen {
          }
 
          // ---- Content interactions.
-         int contentX = winX + GuiStyle.SIDEBAR_W;
+         int contentX = winX + this.sbw();
          int contentY = winY;
-         int contentWidth = winW - GuiStyle.SIDEBAR_W;
+         int contentWidth = winW - this.sbw();
          if (mouseX < contentX || mouseX > winX + winW || mouseY < winY || mouseY > winY + winH) {
             return super.mouseClicked(GuiScaleManager.toLogical(click), doubled);
          }
@@ -3543,13 +4146,7 @@ public class ClickGuiScreen extends Screen {
                if (button == 0 && this.handleStatsClick(mouseX, mouseY, innerXc, innerYc, innerWc)) return true;
                break;
             case 7:
-               if (button == 0 && this.handleNotesClick(mouseX, mouseY, innerXc, innerYc, innerWc)) return true;
-               break;
-            case 8:
-               if (button == 0 && this.handleCalculatorClick(mouseX, mouseY, innerXc, innerYc, innerWc)) return true;
-               break;
-            case 10:
-               if (button == 0 && this.handlePlayerModelClick(mouseX, mouseY, innerXc, innerYc, innerWc)) return true;
+               if (button == 0 && this.handleExtrasClick(mouseX, mouseY, innerXc, innerYc, innerWc)) return true;
                break;
          }
       }
@@ -3572,10 +4169,11 @@ public class ClickGuiScreen extends Screen {
    }
 
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+      if (this.colorModal != null) return true;
       GuiScaleManager.update(this.client);
       double mouseXx = GuiScaleManager.toLogical(mouseX);
       double mouseYx = GuiScaleManager.toLogical(mouseY);
-      if (this.currentTab == 7 && this.selectedNoteIndex >= 0) {
+      if (this.currentTab == 7 && this.extrasSubTab == 4 && this.selectedNoteIndex >= 0) {
          this.noteContentScrollOffset = Math.max(0, this.noteContentScrollOffset - (int)(verticalAmount * 11.0));
          return true;
       } else if (this.client != null && !this.client.isWindowFocused()) {
@@ -3583,9 +4181,9 @@ public class ClickGuiScreen extends Screen {
       } else {
       if (this.currentTab == 0) {
          // Only eat scroll events over the search pill; list scrolling handles the rest.
-         int contentX = this.windowX + GuiStyle.SIDEBAR_W;
+         int contentX = this.windowX + this.sbw();
          int innerX = contentX + 24;
-         int innerW = this.windowW - GuiStyle.SIDEBAR_W - 20 - 28;
+         int innerW = this.windowW - this.sbw() - 20 - 28;
          int headerY = this.windowY + 20 - 2;
          int searchPillW = Math.min(240, innerW / 3);
          int searchPillX = innerX + innerW - searchPillW;
@@ -3613,11 +4211,17 @@ public class ClickGuiScreen extends Screen {
       if (this.colorModal != null && this.colorModal.mouseDragged(GuiScaleManager.toLogical(click))) {
          return true;
       }
+
+      if (this.inlineSettings != null && this.inlineSettings.isDraggingInline()) {
+         this.inlineSettings.dragInline(GuiScaleManager.toLogical((double)click.x()), this.inlineX, this.inlineW);
+         return true;
+      }
+
       double my = GuiScaleManager.toLogical((double)click.y());
       if (this.isDraggingScrollbar && this.currentTab == 0) {
-         int contentX = this.windowX + GuiStyle.SIDEBAR_W;
+         int contentX = this.windowX + this.sbw();
          int innerX = contentX + 24;
-         int innerW = this.windowW - GuiStyle.SIDEBAR_W - 20 - 28;
+         int innerW = this.windowW - this.sbw() - 20 - 28;
          int headerY = this.windowY + 20 - 2;
          int searchPillY = headerY - 3;
          int chipsY = searchPillY + 20 + 8;
@@ -3733,6 +4337,7 @@ public class ClickGuiScreen extends Screen {
          this.colorModal.mouseReleased();
          if (!this.colorModal.isOpen()) this.colorModal = null;
       }
+      if (this.inlineSettings != null) this.inlineSettings.releaseInline();
       this.draggingSlider = null;
       this.isDraggingScrollbar = false;
       // Slider drags used to write the config on every mouse move; persist once when the drag ends instead.
@@ -3794,7 +4399,7 @@ public class ClickGuiScreen extends Screen {
       int chipsRowY = chipsY;
       int chipCursor = x;
 
-      for (int ci = 0; ci < MODULE_CATEGORIES.length; ci++) {
+      for (int ci = 0; ci < MODULE_CATEGORIES.length && !GuiStyle.square(); ci++) {
          String cat = MODULE_CATEGORIES[ci];
          int cw = GuiStyle.chipWidth(this.textRenderer, cat);
          if (GuiStyle.inRect(mouseX, mouseY, chipCursor, chipsRowY, cw, 16)) {
@@ -3809,10 +4414,10 @@ public class ClickGuiScreen extends Screen {
 
       // Module cards.
       int listStartY = chipsRowY + 22;
-      int cardGap = 8;
-      int cardH = 44;
-      int cardW = width;
-      if (mouseY < listStartY) return false;
+      int cardGap = GuiStyle.square() ? 6 : 8;
+      int cardH = this.moduleCardH;
+      int cardW = this.moduleCardW;
+      if (mouseY < listStartY || mouseY >= this.moduleListBottom) return false;
 
       for (ClickGuiScreen.ModuleInfo module : this.getVisibleModules()) {
          int cX = (int)module.currentX;
@@ -3822,7 +4427,7 @@ public class ClickGuiScreen extends Screen {
             if (module.resetHudPosition != null) {
                int rW = 42;
                int rH = 16;
-               int rX = cX + cardW - rW - 154;
+               int rX = cX + cardW - rW - (GuiStyle.cool() ? 66 : GuiStyle.square() ? 70 : 154);
                int rY = cY + (cardH - rH) / 2;
                if (GuiStyle.inRect(mouseX, mouseY, rX, rY, rW, rH)) {
                   module.resetHudPosition.run();
@@ -3833,7 +4438,8 @@ public class ClickGuiScreen extends Screen {
             // Toggle switch region: only clicking the switch itself toggles.
             int tglX = cX + cardW - 58;
             int tglY = cY + (cardH - 16) / 2;
-            if (GuiStyle.inRect(mouseX, mouseY, tglX, tglY, 40, 16)) {
+            boolean chevHit = GuiStyle.square() && module.openSettings != null && mouseX >= cX + cardW - 18;
+            if (!chevHit && GuiStyle.inRect(mouseX, mouseY, tglX, tglY, 40, 16)) {
                if (VoidCyanClient.isSafeModeBlocked(module.name) && !module.enabled) {
                   VoidCyanClient.showSafeModeBlockedNotification(module.name);
                   return true;
@@ -3848,7 +4454,7 @@ public class ClickGuiScreen extends Screen {
             // Anywhere else on the card opens its settings (falls back to toggle
             // for modules without a settings screen).
             if (module.openSettings != null) {
-               module.openSettings.run();
+               this.openModuleSettings(module, cX, cY, cardW, cardH);
             } else {
                if (VoidCyanClient.isSafeModeBlocked(module.name) && !module.enabled) {
                   VoidCyanClient.showSafeModeBlockedNotification(module.name);
@@ -3874,7 +4480,7 @@ public class ClickGuiScreen extends Screen {
          if (selectedScreenshot == null) {
             return false;
          } else {
-            int maxAvailableHeight = this.height - y - 20;
+            int maxAvailableHeight = (GuiStyle.square() ? this.windowY + this.windowH : this.height) - y - 20;
             if (maxAvailableHeight < 150) {
                maxAvailableHeight = 150;
             }
@@ -3939,7 +4545,7 @@ public class ClickGuiScreen extends Screen {
 
                if (mouseX >= previewX && mouseX <= previewX + previewWidth && mouseY >= copyButtonY && mouseY <= copyButtonY + buttonHeight) {
                   try {
-                     File bgFolder = new File(MinecraftClient.getInstance().runDirectory, "background");
+                     File bgFolder = new File(MinecraftClient.getInstance().runDirectory, "voidcyan/background");
                      if (!bgFolder.exists()) {
                         bgFolder.mkdirs();
                      }
@@ -3957,7 +4563,10 @@ public class ClickGuiScreen extends Screen {
                   }
 
                   return true;
-               } else if (mouseX >= previewX && mouseX <= previewX + previewWidth && mouseY >= deleteButtonY && mouseY <= deleteButtonY + buttonHeight) {
+               } else if (mouseX >= previewX + previewWidth / 2 + 3 && mouseX <= previewX + previewWidth && mouseY >= deleteButtonY && mouseY <= deleteButtonY + buttonHeight) {
+                  this.client.setScreen(new BackgroundEditorScreen(this, selectedScreenshot.file));
+                  return true;
+               } else if (mouseX >= previewX && mouseX <= previewX + previewWidth / 2 - 3 && mouseY >= deleteButtonY && mouseY <= deleteButtonY + buttonHeight) {
                   if (selectedScreenshot.file.delete()) {
                      this.screenshots.remove(selectedScreenshot);
                      this.screenshotSearchInput = "";
@@ -3997,10 +4606,15 @@ public class ClickGuiScreen extends Screen {
       if (mouseY >= row2Y && mouseY <= row2Y + buttonHeight) {
          if (mouseX >= x && mouseX <= x + buttonWidth) {
             try {
-               Desktop.getDesktop().open(new File(MinecraftClient.getInstance().runDirectory, "background"));
+               Desktop.getDesktop().open(new File(MinecraftClient.getInstance().runDirectory, "voidcyan/background"));
             } catch (Exception var30) {
             }
 
+            return true;
+         }
+
+         if (mouseX >= x + (buttonWidth + buttonSpacing) * 2 && mouseX <= x + (buttonWidth + buttonSpacing) * 2 + buttonWidth) {
+            this.client.setScreen(new BackgroundEditorScreen(this));
             return true;
          }
 
@@ -4033,7 +4647,7 @@ public class ClickGuiScreen extends Screen {
       if (this.backgroundFiles.isEmpty()) {
          return false;
       } else {
-         int maxAvailableHeight = this.height - y - 20;
+         int maxAvailableHeight = (GuiStyle.square() ? this.windowY + this.windowH : this.height) - y - 20;
          if (maxAvailableHeight < 150) {
             maxAvailableHeight = 150;
          }
@@ -4184,10 +4798,10 @@ public class ClickGuiScreen extends Screen {
       {
          int moduleCardY = cardY + 165;
                if (mouseX >= x + 12 && mouseX <= x + 262 && mouseY >= moduleCardY + 85 && mouseY <= moduleCardY + 101) {
-                  VoidCyanClient.guiType = VoidCyanClient.guiType == 0 ? 1 : 0;
+                  VoidCyanClient.guiType = (VoidCyanClient.guiType + 1) % 3;
                   VoidCyanClient.saveConfig();
-                  if (VoidCyanClient.guiType == 1 && this.client != null) {
-                     this.client.setScreen(new DropdownGuiScreen());
+                  if (this.client != null) {
+                     VoidCyanClient.openMainGui(this.client, null);
                   }
 
                   return true;
@@ -4466,8 +5080,8 @@ public class ClickGuiScreen extends Screen {
       if (!(alpha <= 0.01F)) {
          GuiStyle.text(context, this.textRenderer, "Statistics", x, y, (int)(alpha * 255.0F) << 24 | (VoidCyanClient.getPrimaryColor() & 0x00FFFFFF));
          int off = Math.max(0, this.scrollOffset);
-         int colAllTime = x + width - 220;
-         int colSession = x + width - 80;
+         int colAllTime = Math.max(x + 210, x + width - 220);
+         int colSession = Math.max(colAllTime + 150, x + width - 80);
          int headerY = y + 24;
          int headerDrawY = headerY - off;
          int colLabel = x + 10;
@@ -4962,6 +5576,166 @@ public class ClickGuiScreen extends Screen {
       }
    }
 
+   private void renderAnimatedExtrasTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
+      int primary = VoidCyanClient.getPrimaryColor();
+      int bw = width / this.extrasSubTabs.length;
+      for (int i = 0; i < this.extrasSubTabs.length; i++) {
+         boolean active = i == this.extrasSubTab;
+         if (GuiStyle.square()) {
+            boolean hov = GuiStyle.inRect(mouseX, mouseY, x + i * bw, y, bw - 4, 20);
+            context.fill(x + i * bw, y, x + i * bw + bw - 4, y + 20, 0xFF000000 | (active ? 0x171B24 : hov ? 0x141821 : 0x0F1218));
+            context.fill(x + i * bw, y + 19, x + i * bw + bw - 4, y + 20, 0xFF000000 | (active ? primary & 0xFFFFFF : 0x1D212B));
+            if (active) context.fill(x + i * bw, y + 18, x + i * bw + bw - 4, y + 20, 0xFF000000 | (primary & 0xFFFFFF));
+            GuiStyle.textCentered(context, this.textRenderer, this.extrasSubTabs[i], x + i * bw + (bw - 4) / 2, y + 6, active ? 0xFFFFFFFF : hov ? 0xFFD5DAE4 : 0xFF7C8494);
+            continue;
+         }
+
+         GuiStyle.roundedRect(context, x + i * bw, y, bw - 4, 20, 4, active ? 0xFF000000 | primary & 0xFFFFFF : 0x33FFFFFF);
+         GuiStyle.textCentered(context, this.textRenderer, this.extrasSubTabs[i], x + i * bw + (bw - 4) / 2, y + 6, active ? 0xFF000000 : 0xFFFFFFFF);
+      }
+
+      int subY = y + 28;
+      context.enableScissor(x - 8, subY - 4, x + width + 8, this.windowY + this.windowH - 8);
+      switch (this.extrasSubTab) {
+         case 0 -> this.renderAnimatedCalculatorTab(context, mouseX, mouseY, x, subY, width, alpha);
+         case 1 -> this.renderAnimatedPlayerModelTab(context, mouseX, mouseY, x, subY, width, alpha);
+         case 3 -> this.renderAnimatedRecipesTab(context, mouseX, mouseY, x, subY, width, alpha);
+         case 4 -> this.renderAnimatedNotesTab(context, mouseX, mouseY, x, subY, width, alpha);
+      }
+
+      context.disableScissor();
+   }
+
+   private boolean handleExtrasClick(double mouseX, double mouseY, int x, int y, int width) {
+      int bw = width / this.extrasSubTabs.length;
+      if (mouseY >= y && mouseY <= y + 20) {
+         int i = (int)((mouseX - x) / bw);
+         if (i >= 0 && i < this.extrasSubTabs.length) {
+            if (i == 2) {
+               this.client.setScreen(new TextureMakerScreen(this));
+            } else {
+               this.clearTextFocus();
+               this.extrasSubTab = i;
+            }
+
+            return true;
+         }
+      }
+
+      int subY = y + 28;
+      return switch (this.extrasSubTab) {
+         case 0 -> this.handleCalculatorClick(mouseX, mouseY, x, subY, width);
+         case 1 -> this.handlePlayerModelClick(mouseX, mouseY, x, subY, width);
+         case 3 -> this.handleRecipesClick(mouseX, mouseY, x, subY, width);
+         case 4 -> this.handleNotesClick(mouseX, mouseY, x, subY, width);
+         default -> false;
+      };
+   }
+
+   private List<com.voidcyan.client.util.RecipeIndex.Recipe> recipeMaking = List.of();
+   private List<ItemStack> recipeUses = List.of();
+
+   private void selectRecipeItem(ItemStack stack) {
+      this.selectedRecipeItem = stack;
+      this.recipeMaking = com.voidcyan.client.util.RecipeIndex.making(stack.getItem());
+      List<ItemStack> uses = new ArrayList<>();
+      java.util.Set<Item> seen = new java.util.HashSet<>();
+      for (com.voidcyan.client.util.RecipeIndex.Recipe r : com.voidcyan.client.util.RecipeIndex.using(stack.getItem())) {
+         Item res = Registries.ITEM.get(net.minecraft.util.Identifier.of(r.result()));
+         if (res != Items.AIR && seen.add(res)) uses.add(new ItemStack(res));
+      }
+
+      this.recipeUses = uses;
+   }
+
+   private void renderAnimatedRecipesTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
+      int primary = VoidCyanClient.getPrimaryColor();
+      GuiStyle.roundedBordered(context, x, y, width, 18, 4, 0xCC000000, this.isRecipeSearchFocused ? primary : 0x55FFFFFF);
+      String shown = this.recipeSearch.isEmpty() ? "Search item..." : this.recipeSearch;
+      GuiStyle.text(context, this.textRenderer, shown, x + 4, y + 5, this.recipeSearch.isEmpty() ? 0x88FFFFFF : 0xFFFFFFFF);
+      int gridY = y + 24;
+      int cols = Math.max(1, width / 20);
+      String q = this.recipeSearch.toLowerCase();
+      int i = 0;
+
+      for (Item item : Registries.ITEM) {
+         if (item == Items.AIR || !Registries.ITEM.getId(item).getPath().contains(q)) continue;
+         int gy = gridY + i / cols * 20;
+         if (gy > gridY + 80) break;
+         context.drawItem(new ItemStack(item), x + i % cols * 20, gy);
+         i++;
+      }
+
+      int infoY = gridY + 104;
+      if (!this.selectedRecipeItem.isEmpty()) {
+         context.drawItem(this.selectedRecipeItem, x, infoY);
+         GuiStyle.text(context, this.textRenderer, this.selectedRecipeItem.getName().getString(), x + 20, infoY + 4, primary);
+         GuiStyle.text(context, this.textRenderer, "Crafted from:", x, infoY + 22, 0xFFFFFFFF);
+         int ry = infoY + 34;
+         if (this.recipeMaking.isEmpty()) {
+            GuiStyle.text(context, this.textRenderer, "No recipe (drop / natural)", x, ry + 4, 0x88FFFFFF);
+            ry += 20;
+         }
+
+         for (int k = 0; k < this.recipeMaking.size() && k < 3; k++) {
+            com.voidcyan.client.util.RecipeIndex.Recipe rc = this.recipeMaking.get(k);
+            GuiStyle.text(context, this.textRenderer, com.voidcyan.client.util.RecipeIndex.typeLabel(rc.type()), x, ry + 5, 0xFF000000 | (primary & 0xFFFFFF));
+            int ix = x + 62;
+            for (List<String> slot : rc.slots()) {
+               Item it = com.voidcyan.client.util.RecipeIndex.firstItem(slot);
+               if (it != Items.AIR) context.drawItem(new ItemStack(it), ix, ry);
+               ix += 18;
+            }
+
+            GuiStyle.text(context, this.textRenderer, "→ x" + rc.count(), ix + 2, ry + 5, 0xFFFFFFFF);
+            ry += 20;
+         }
+
+         ry += 6;
+         GuiStyle.text(context, this.textRenderer, "Used in:", x, ry, 0xFFFFFFFF);
+         ry += 12;
+         int perRow = Math.max(1, width / 20);
+         for (int j = 0; j < this.recipeUses.size() && j < perRow * 2; j++) {
+            context.drawItem(this.recipeUses.get(j), x + j % perRow * 20, ry + j / perRow * 20);
+         }
+
+         int usedRows = Math.min(2, (this.recipeUses.size() + perRow - 1) / perRow);
+         ry += Math.max(1, usedRows) * 20 + 4;
+         String drops = com.voidcyan.client.util.ItemDrops.get(Registries.ITEM.getId(this.selectedRecipeItem.getItem()).getPath());
+         if (drops != null) {
+            GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis("Dropped from: " + drops, width), x, ry, 0xFFFFFFFF);
+         }
+      }
+   }
+
+   private boolean handleRecipesClick(double mouseX, double mouseY, int x, int y, int width) {
+      if (mouseY >= y && mouseY <= y + 18 && mouseX >= x && mouseX <= x + width) {
+         this.isRecipeSearchFocused = true;
+         return true;
+      }
+
+      this.isRecipeSearchFocused = false;
+      int gridY = y + 24;
+      int cols = Math.max(1, width / 20);
+      String q = this.recipeSearch.toLowerCase();
+      int i = 0;
+
+      for (Item item : Registries.ITEM) {
+         if (item == Items.AIR || !Registries.ITEM.getId(item).getPath().contains(q)) continue;
+         int gx = x + i % cols * 20;
+         int gy = gridY + i / cols * 20;
+         if (gy > gridY + 80) break;
+         if (mouseX >= gx && mouseX < gx + 18 && mouseY >= gy && mouseY < gy + 18) {
+            this.selectRecipeItem(new ItemStack(item));
+            return true;
+         }
+
+         i++;
+      }
+
+      return false;
+   }
+
    private void renderAnimatedCalculatorTab(DrawContext context, int mouseX, int mouseY, int x, int y, int width, float alpha) {
       if (!(alpha < 0.05F)) {
          int primaryColor = VoidCyanClient.getPrimaryColor();
@@ -4974,7 +5748,13 @@ public class ClickGuiScreen extends Screen {
          int inputFieldH = 40;
          boolean inputHover = mouseX >= fieldX && mouseX <= fieldX + fieldWidth && mouseY >= fieldY && mouseY <= fieldY + inputFieldH;
          int inputBg = this.isCalculatorInputFocused ? 1627389951 : (inputHover ? 822083583 : 553648127);
-         drawModernRoundedRect(context, fieldX, fieldY, fieldWidth, inputFieldH, 6, inputBg);
+         if (GuiStyle.square()) {
+            int ea = (int)(alpha * 255.0F) << 24;
+            context.fill(fieldX, fieldY, fieldX + fieldWidth, fieldY + inputFieldH, ea | (this.isCalculatorInputFocused ? (primaryColor & 0xFFFFFF) : inputHover ? 0x323A4A : 0x1D212B));
+            context.fill(fieldX + 1, fieldY + 1, fieldX + fieldWidth - 1, fieldY + inputFieldH - 1, ea | 0x0D0F14);
+         } else {
+            drawModernRoundedRect(context, fieldX, fieldY, fieldWidth, inputFieldH, 6, inputBg);
+         }
          String displayText = this.calculatorInput.isEmpty() ? "Enter expression..." : this.calculatorInput;
          int textColor = this.calculatorInput.isEmpty() ? -2130706433 : -1;
          context.drawTextWithShadow(this.textRenderer, Text.literal(displayText), fieldX + 10, fieldY + 14, textColor);
@@ -4986,14 +5766,19 @@ public class ClickGuiScreen extends Screen {
 
          int resultY = fieldY + inputFieldH + 10;
          if (!this.calculatorResult.isEmpty()) {
-            drawModernRoundedRect(context, fieldX, resultY, fieldWidth, 35, 6, 1073741824 | primaryColor & 16777215);
+            if (GuiStyle.square()) {
+               context.fill(fieldX, resultY, fieldX + fieldWidth, resultY + 35, (int)(alpha * 255.0F) << 24 | 0x10131A);
+               context.fill(fieldX, resultY, fieldX + 3, resultY + 35, (int)(alpha * 255.0F) << 24 | (primaryColor & 0xFFFFFF));
+            } else {
+               drawModernRoundedRect(context, fieldX, resultY, fieldWidth, 35, 6, 1073741824 | primaryColor & 16777215);
+            }
             context.drawTextWithShadow(this.textRenderer, Text.literal("= " + this.calculatorResult), fieldX + 10, resultY + 12, primaryColor);
             resultY += 45;
          } else {
             resultY += 10;
          }
 
-         int buttonSize = 60;
+         int buttonSize = (GuiStyle.square() ? 38 : 60);
          int buttonGap = 8;
          int gridX = fieldX + (fieldWidth - (buttonSize * 4 + buttonGap * 3)) / 2;
          int gridY = resultY + 10;
@@ -5017,7 +5802,22 @@ public class ClickGuiScreen extends Screen {
                   btnBg = btnHover ? 1358954495 : 822083583;
                }
 
-               context.fill(btnX, btnY, btnX + buttonSize, btnY + buttonSize, btnBg);
+               if (GuiStyle.square()) {
+                  boolean isEq = btnLabel.equals("=");
+                  boolean isClr = btnLabel.equals("C") || btnLabel.equals("\u2190");
+                  boolean isOp = btnLabel.matches("[+\\-*/()]");
+                  int rgb = isEq ? (btnHover ? GuiStyle.blend(primaryColor, 0xFFFFFF, 0.2F) : primaryColor & 0xFFFFFF)
+                     : isClr ? (btnHover ? 0x3C1B20 : 0x2A1418)
+                     : isOp ? GuiStyle.blend(btnHover ? 0x1B2634 : 0x131A24, primaryColor, btnHover ? 0.22F : 0.10F)
+                     : (btnHover ? 0x212734 : 0x161A22);
+                  int ba = (int)(alpha * 255.0F) << 24;
+                  context.fill(btnX, btnY, btnX + buttonSize, btnY + buttonSize, ba | (btnHover ? 0x323A4A : 0x232833));
+                  context.fill(btnX + 1, btnY + 1, btnX + buttonSize - 1, btnY + buttonSize - 1, ba | rgb);
+                  btnTextColor = isEq ? ba | 0x0A0C10 : ba | 0xE6EAF2;
+               } else {
+                  context.fill(btnX, btnY, btnX + buttonSize, btnY + buttonSize, btnBg);
+               }
+
                int textWidth = this.textRenderer.getWidth(btnLabel);
                int textX = btnX + (buttonSize - textWidth) / 2;
                int textY = btnY + (buttonSize - 8) / 2;
@@ -5038,7 +5838,7 @@ public class ClickGuiScreen extends Screen {
          this.textCursor = this.calculatorInput.length();
          return true;
       } else {
-         int buttonSize = 60;
+         int buttonSize = (GuiStyle.square() ? 38 : 60);
          int buttonGap = 8;
          int gridX = fieldX + (fieldWidth - (buttonSize * 4 + buttonGap * 3)) / 2;
          int resultY = fieldY + inputFieldH + (!this.calculatorResult.isEmpty() ? 55 : 10);
@@ -5148,7 +5948,7 @@ public class ClickGuiScreen extends Screen {
       this.drawGlowText(context, "Player Model", x, y, primary, alpha);
 
       int cardY = y + 36 - this.scrollOffset;
-      int cardH = 250;
+      int cardH = 310;
       int cardW = width - 20;
       this.drawAnimatedCard(context, x, cardY, cardW, cardH, primary, 0.6F, alpha);
       if (alpha < 0.3F) return;
@@ -5166,10 +5966,12 @@ public class ClickGuiScreen extends Screen {
       GuiStyle.roundedOutline(context, previewX, previewY, previewW, previewH, 6, (int)(textAlpha * 50.0F) << 24 | (primary & 0xFFFFFF));
 
       if (this.client != null && this.client.player != null) {
+         context.enableScissor(previewX + 1, previewY + 1, previewX + previewW - 1, previewY + previewH - 16);
          InventoryScreen.drawEntity(
             context, previewX + 6, previewY + 6, previewX + previewW - 6, previewY + previewH - 20,
             46, 0.0625F, mouseX, mouseY, this.client.player
          );
+         context.disableScissor();
       }
       String hint = "3D Interactive Preview";
       int hintW = this.textRenderer.getWidth(hint);
@@ -5205,9 +6007,9 @@ public class ClickGuiScreen extends Screen {
          : "Model: None loaded (vanilla player mesh)";
       String texInfo = hasTex ? "Texture: texture.png (loaded)" : (hasModel ? "Texture: Missing texture.png (white fallback)" : "Texture: Vanilla player skin");
       String statInfo = !this.clickGuiPmStatus.isEmpty() ? this.clickGuiPmStatus : (hasModel ? (VoidCyanClient.isPlayerModelEnabled ? "Model loaded and rendering in 3D" : "Model loaded (toggle switch ON to enable)") : "Click 'Import .obj' to load a 3D model");
-      GuiStyle.text(context, this.textRenderer, modelInfo, rightX + 8, infoBoxY + 8, hasModel ? textColor : subColor);
-      GuiStyle.text(context, this.textRenderer, texInfo, rightX + 8, infoBoxY + 24, hasTex ? 0xFF55FF99 : (hasModel ? 0xFFFFAA44 : subColor));
-      GuiStyle.text(context, this.textRenderer, statInfo, rightX + 8, infoBoxY + 44, 0xFF00E5FF);
+      GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis(modelInfo, rightW - 16), rightX + 8, infoBoxY + 8, hasModel ? textColor : subColor);
+      GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis(texInfo, rightW - 16), rightX + 8, infoBoxY + 24, hasTex ? 0xFF55FF99 : (hasModel ? 0xFFFFAA44 : subColor));
+      GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis(statInfo, rightW - 16), rightX + 8, infoBoxY + 44, 0xFF00E5FF);
 
       // Buttons Row 1
       int btnGap = 8;
@@ -5223,9 +6025,21 @@ public class ClickGuiScreen extends Screen {
       this.drawClickGuiButton(context, mouseX, mouseY, rightX + btnW + btnGap, row2Y, btnW, btnH, "Clear / Remove Model", primary, textAlpha);
 
       // Footer
-      int footY = row2Y + btnH + 12;
-      GuiStyle.text(context, this.textRenderer, "• Place your Wavefront .obj file as model.obj and skin as texture.png", rightX, footY, subColor);
-      GuiStyle.text(context, this.textRenderer, "• Supports triangles & quads up to 60,000 faces. Renders in 1st & 3rd person.", rightX, footY + 12, subColor);
+      int row3Y = row2Y + btnH + 6;
+      int smallW = 22;
+      this.drawClickGuiButton(context, mouseX, mouseY, rightX, row3Y, smallW, btnH, "-", primary, textAlpha);
+      String scaleLbl = String.format(java.util.Locale.ROOT, "Model Scale: %.2fx", VoidCyanClient.playerModelScale);
+      GuiStyle.text(context, this.textRenderer, scaleLbl, rightX + smallW + 8, row3Y + 6, textColor);
+      int plusX = rightX + smallW + 8 + this.textRenderer.getWidth(scaleLbl) + 8;
+      this.drawClickGuiButton(context, mouseX, mouseY, plusX, row3Y, smallW, btnH, "+", primary, textAlpha);
+      this.drawClickGuiButton(context, mouseX, mouseY, plusX + smallW + 6, row3Y, 44, btnH, "Reset", primary, textAlpha);
+      int row4Y = row3Y + btnH + 6;
+      this.drawClickGuiButton(context, mouseX, mouseY, rightX, row4Y, btnW, btnH, "Other Players: " + (VoidCyanClient.playerModelOthers ? "ON" : "OFF"), primary, textAlpha);
+      this.drawClickGuiButton(context, mouseX, mouseY, rightX + btnW + btnGap, row4Y, btnW, btnH, "Hide Armor: " + (VoidCyanClient.playerModelHideArmor ? "ON" : "OFF"), primary, textAlpha);
+      this.drawClickGuiButton(context, mouseX, mouseY, rightX, row4Y + btnH + 6, btnW, btnH, "Hide Held: " + (VoidCyanClient.playerModelHideHeld ? "ON" : "OFF"), primary, textAlpha);
+      int footY = row4Y + 2 * (btnH + 6) + 4;
+      GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis("• Place your Wavefront .obj file as model.obj and skin as texture.png", rightW), rightX, footY, subColor);
+      GuiStyle.text(context, this.textRenderer, this.trimWithEllipsis("• Triangles & quads; dense models are simplified automatically. Auto-fits to player height.", rightW), rightX, footY + 12, subColor);
    }
 
    private void drawClickGuiButton(DrawContext context, int mouseX, int mouseY, int bx, int by, int bw, int bh, String label, int primaryColor, float textAlpha) {
@@ -5233,9 +6047,13 @@ public class ClickGuiScreen extends Screen {
       GuiStyle.roundedRect(context, bx, by, bw, bh, 3, (int)(textAlpha * (hov ? 140 : 90)) << 24 | 0x2A2434);
       GuiStyle.roundedOutline(context, bx, by, bw, bh, 3, (int)(textAlpha * (hov ? 180 : 90)) << 24 | (primaryColor & 0xFFFFFF));
       int tw = this.textRenderer.getWidth(label);
-      int tx = bx + (bw - tw) / 2;
-      int ty = by + (bh - 8) / 2;
-      GuiStyle.text(context, this.textRenderer, label, tx, ty, (int)(textAlpha * 240.0F) << 24 | 0x00FFFFFF);
+      int col = (int)(textAlpha * 240.0F) << 24 | 0x00FFFFFF;
+      float sc = tw > bw - 8 ? Math.max(0.5F, (bw - 8) / (float)tw) : 1.0F;
+      context.getMatrices().pushMatrix();
+      context.getMatrices().translate(bx + (bw - tw * sc) / 2.0F, by + (bh - 8 * sc) / 2.0F);
+      context.getMatrices().scale(sc, sc);
+      GuiStyle.text(context, this.textRenderer, label, 0, 0, col);
+      context.getMatrices().popMatrix();
    }
 
    private boolean handlePlayerModelClick(double mouseX, double mouseY, int x, int y, int width) {
@@ -5285,6 +6103,46 @@ public class ClickGuiScreen extends Screen {
       }
 
       // Button 4: Remove Model
+      int row3Y = row2Y + btnH + 6;
+      int smallW = 22;
+      String scaleLbl = String.format(java.util.Locale.ROOT, "Model Scale: %.2fx", VoidCyanClient.playerModelScale);
+      int plusX = rightX + smallW + 8 + this.textRenderer.getWidth(scaleLbl) + 8;
+      if (GuiStyle.inRect(mouseX, mouseY, rightX, row3Y, smallW, btnH)) {
+         VoidCyanClient.playerModelScale = Math.max(0.05F, Math.round(VoidCyanClient.playerModelScale / 1.1F * 100.0F) / 100.0F);
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+
+      if (GuiStyle.inRect(mouseX, mouseY, plusX, row3Y, smallW, btnH)) {
+         VoidCyanClient.playerModelScale = Math.min(20.0F, Math.round(VoidCyanClient.playerModelScale * 1.1F * 100.0F) / 100.0F);
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+
+      if (GuiStyle.inRect(mouseX, mouseY, plusX + smallW + 6, row3Y, 44, btnH)) {
+         VoidCyanClient.playerModelScale = 1.0F;
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+
+      if (GuiStyle.inRect(mouseX, mouseY, rightX, row3Y + btnH + 6, btnW, btnH)) {
+         VoidCyanClient.playerModelOthers = !VoidCyanClient.playerModelOthers;
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+
+      if (GuiStyle.inRect(mouseX, mouseY, rightX, row3Y + 2 * (btnH + 6), btnW, btnH)) {
+         VoidCyanClient.playerModelHideHeld = !VoidCyanClient.playerModelHideHeld;
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+
+      if (GuiStyle.inRect(mouseX, mouseY, rightX + btnW + btnGap, row3Y + btnH + 6, btnW, btnH)) {
+         VoidCyanClient.playerModelHideArmor = !VoidCyanClient.playerModelHideArmor;
+         VoidCyanClient.saveConfig();
+         return true;
+      }
+
       if (GuiStyle.inRect(mouseX, mouseY, rightX + btnW + btnGap, row2Y, btnW, btnH)) {
          PlayerModelManager.clearModel();
          this.clickGuiPmStatus = "Model removed";

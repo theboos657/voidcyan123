@@ -21,10 +21,10 @@ import net.minecraft.world.RaycastContext;
 public final class OptimizeManager {
    private OptimizeManager() {}
 
-   public static boolean optimizeItems = false;
-   public static boolean optimizeChests = false;
-   public static boolean optimizeSigns = false;
-   public static boolean optimizePlayers = false;
+   public static boolean optimizeItems = true;
+   public static boolean optimizeChests = true;
+   public static boolean optimizeSigns = true;
+   public static boolean optimizePlayers = true;
    public static int signTextDistance = 48;
 
    private static final java.util.Map<Long, Boolean> OCCLUSION_CACHE = new java.util.HashMap<>();
@@ -119,7 +119,10 @@ public final class OptimizeManager {
    /** Players: visible unless occluded (own player never occluded — sits at the camera). */
    public static boolean shouldRenderPlayer(double x, double y, double z) {
       if (!optimizePlayers) return true;
-      return isBlockVisible(BlockPos.ofFloored(x, y, z));
+      // A player counts as visible if their feet, torso or head can be seen.
+      return isBlockVisible(BlockPos.ofFloored(x, y, z))
+         || isBlockVisible(BlockPos.ofFloored(x, y + 0.9, z))
+         || isBlockVisible(BlockPos.ofFloored(x, y + 1.7, z));
    }
 
    /** Sign text: only rendered within the configured distance (1-128 blocks). */
@@ -131,6 +134,7 @@ public final class OptimizeManager {
       double dx = pos.getX() + 0.5 - camPos.x;
       double dy = pos.getY() + 0.5 - camPos.y;
       double dz = pos.getZ() + 0.5 - camPos.z;
-      return dx * dx + dy * dy + dz * dz <= (double)signTextDistance * (double)signTextDistance;
+      if (dx * dx + dy * dy + dz * dz > (double)signTextDistance * (double)signTextDistance) return false;
+      return isBlockVisible(pos);
    }
 }

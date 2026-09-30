@@ -25,10 +25,6 @@ public class MixinPlayerEntity {
             && (VoidCyanClient.freelookActive || client.currentScreen instanceof FreelookSettingsScreen)
             && thisPlayer == client.player) {
             cir.setReturnValue(true);
-         } else {
-            if (VoidCyanClient.isPeerNickEnabled && thisPlayer != client.player) {
-               cir.setReturnValue(false);
-            }
          }
       }
    }

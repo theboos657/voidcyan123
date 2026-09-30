@@ -64,6 +64,7 @@ public final class CritEffectsManager {
       py += anchor;
       int played = 0;
       boolean crit = isCrit(attacker);
+      if (crit) flashAt = now;
 
       // Build the set of trigger keys this attack satisfies. An effect fires
       // ONLY if its chosen trigger is in this set — so "armor stand hit"
@@ -128,6 +129,8 @@ public final class CritEffectsManager {
          y = mc.player.getY() + 1.0;
          z = mc.player.getZ();
       }
+      killAt = System.currentTimeMillis();
+      flashAt = killAt;
       boolean playerVictim = victim instanceof PlayerEntity;
       fire(playerVictim ? new String[]{"kill_player", "kill"} : new String[]{"kill_mob", "kill"},
          mc.world, x, y, z);
@@ -154,6 +157,48 @@ public final class CritEffectsManager {
 
    private static boolean isCrit(PlayerEntity p) {
       return p.fallDistance > 0.0F && !p.isOnGround() && !p.isTouchingWater() && !p.hasVehicle() && !p.isSprinting() && !p.isUsingSpyglass();
+   }
+
+   // ================= Screen effects (no particles) =================
+
+   private static long flashAt = 0L;
+   private static long killAt = 0L;
+
+   /** Edge flash on crit/kill plus a punchy KILL banner; drawn every HUD frame. */
+   public static void renderOverlay(net.minecraft.client.gui.DrawContext ctx) {
+      if (!enabled) return;
+      long now = System.currentTimeMillis();
+      int w = ctx.getScaledWindowWidth();
+      int h = ctx.getScaledWindowHeight();
+      int rgb = VoidCyanClient.getPrimaryColor() & 0xFFFFFF;
+      float ft = (now - flashAt) / 380.0F;
+      if (ft >= 0.0F && ft < 1.0F) {
+         float k = (1.0F - ft) * (1.0F - ft);
+         for (int i = 0; i < 24; i++) {
+            int a = (int) (k * 120.0F * (1.0F - i / 24.0F));
+            if (a <= 0) break;
+            int c = a << 24 | rgb;
+            ctx.fill(i, i, w - i, i + 1, c);
+            ctx.fill(i, h - i - 1, w - i, h - i, c);
+            ctx.fill(i, i + 1, i + 1, h - i - 1, c);
+            ctx.fill(w - i - 1, i + 1, w - i, h - i - 1, c);
+         }
+      }
+
+      float kt = (now - killAt) / 1300.0F;
+      if (kt >= 0.0F && kt < 1.0F) {
+         net.minecraft.client.font.TextRenderer tr = MinecraftClient.getInstance().textRenderer;
+         float pop = kt < 0.12F ? 1.0F + (0.12F - kt) * 8.0F : 1.0F;
+         int a = (int) (Math.min(1.0F, (1.0F - kt) * 2.5F) * 255.0F);
+         if (a > 4) {
+            String txt = "KILL";
+            ctx.getMatrices().pushMatrix();
+            ctx.getMatrices().translate(w / 2.0F, h / 3.0F);
+            ctx.getMatrices().scale(2.6F * pop, 2.6F * pop);
+            ctx.drawCenteredTextWithShadow(tr, txt, 0, -4, a << 24 | rgb);
+            ctx.getMatrices().popMatrix();
+         }
+      }
    }
 
    // ================= Loading =================
@@ -227,6 +272,7 @@ public final class CritEffectsManager {
       String sound = "";
       float volume = 1.0F;
       float pitch = 1.0F;
+      java.util.List<FxPart> parts; // custom particle model built in the 3D modeler
       String model = "";      // OBJ file name in config/voidcyan-crit-effects/
       float modelScale = 1.0F;
       float spinSpeed = 0.0F; // degrees per tick around Y
@@ -266,6 +312,22 @@ public final class CritEffectsManager {
             ModelInstance.spawn(world, cx, cy, cz, this);
          }
 
+         if (this.parts != null && !this.parts.isEmpty()) {
+            CritBillboardFX.spawnCustom(this.parts, cx, cy, cz);
+            if (this.sound != null && !this.sound.isEmpty()) {
+               try {
+                  SoundEvent se = Registries.SOUND_EVENT.get(Identifier.of(this.sound.contains(":") ? this.sound : "minecraft:" + this.sound));
+                  if (se != null) {
+                     MinecraftClient.getInstance().getSoundManager()
+                        .play(new PositionedSoundInstance(se, SoundCategory.PLAYERS, this.volume, this.pitch, net.minecraft.util.math.random.Random.create(), cx, cy, cz));
+                  }
+               } catch (Exception ignored) {
+               }
+            }
+
+            return;
+         }
+
          // Billboard FX presets (blue_comet, golden_ring, ...) skip the particle path.
          // cy already arrives chest-anchored; don't push it back toward the feet.
          if (CritBillboardFX.spawnPreset(this.shape, cx, cy, cz,
@@ -277,6 +339,12 @@ public final class CritEffectsManager {
          if (pe == null) return;
          cy = cy + this.height * 0.5;
          java.util.Random r = new java.util.Random();
+         final boolean rainbow = this.dustMode && "rainbow".equalsIgnoreCase(this.color);
+         final ParticleEffect fixedPe = pe;
+         final float dustScale = Math.max(0.1F, this.scale);
+         java.util.function.IntFunction<ParticleEffect> P = i -> rainbow
+            ? new DustParticleEffect(java.awt.Color.HSBtoRGB((i % 24) / 24.0F, 0.85F, 1.0F) & 0xFFFFFF, dustScale)
+            : fixedPe;
 
          switch (this.shape == null ? "ring" : this.shape) {
             case "burst" -> {
@@ -286,7 +354,7 @@ public final class CritEffectsManager {
                   double vx = Math.cos(a) * Math.cos(el) * this.speed;
                   double vy = Math.sin(el) * this.speed;
                   double vz = Math.sin(a) * Math.cos(el) * this.speed;
-                  world.addParticleClient(pe, cx, cy, cz, vx, vy, vz);
+                  world.addParticleClient(P.apply(i), cx, cy, cz, vx, vy, vz);
                }
             }
             case "column" -> {
@@ -294,7 +362,7 @@ public final class CritEffectsManager {
                   double a = r.nextDouble() * Math.PI * 2.0;
                   double y = cy - this.height * 0.5 + r.nextDouble() * this.height;
                   double rr = 0.25 + r.nextDouble() * 0.15;
-                  world.addParticleClient(pe, cx + Math.cos(a) * rr, y, cz + Math.sin(a) * rr, 0.0, 0.02 + r.nextDouble() * 0.05, 0.0);
+                  world.addParticleClient(P.apply(i), cx + Math.cos(a) * rr, y, cz + Math.sin(a) * rr, 0.0, 0.02 + r.nextDouble() * 0.05, 0.0);
                }
             }
             case "spiral" -> {
@@ -302,14 +370,14 @@ public final class CritEffectsManager {
                   double t = (double) i / this.count;
                   double a = t * Math.PI * 6.0;
                   double y = cy - this.height * 0.5 + t * this.height;
-                  world.addParticleClient(pe, cx + Math.cos(a) * this.radius, y, cz + Math.sin(a) * this.radius, 0.0, 0.03, 0.0);
+                  world.addParticleClient(P.apply(i), cx + Math.cos(a) * this.radius, y, cz + Math.sin(a) * this.radius, 0.0, 0.03, 0.0);
                }
             }
             case "halo" -> {
                double hy = cy + this.height * 0.5;
                for (int i = 0; i < this.count; i++) {
                   double a = (double) i / this.count * Math.PI * 2.0;
-                  world.addParticleClient(pe, cx + Math.cos(a) * this.radius, hy, cz + Math.sin(a) * this.radius, 0.0, 0.01, 0.0);
+                  world.addParticleClient(P.apply(i), cx + Math.cos(a) * this.radius, hy, cz + Math.sin(a) * this.radius, 0.0, 0.01, 0.0);
                }
             }
             case "lightning" -> {
@@ -321,8 +389,34 @@ public final class CritEffectsManager {
                   ox += (r.nextDouble() - 0.5) * 0.5;
                   oz += (r.nextDouble() - 0.5) * 0.5;
                   y += this.height / segs;
-                  world.addParticleClient(pe, cx + ox, y, cz + oz, 0.0, 0.0, 0.0);
-                  world.addParticleClient(pe, cx + ox * 0.6, y - 0.15, cz + oz * 0.6, 0.0, 0.0, 0.0);
+                  world.addParticleClient(P.apply(i), cx + ox, y, cz + oz, 0.0, 0.0, 0.0);
+                  world.addParticleClient(P.apply(i), cx + ox * 0.6, y - 0.15, cz + oz * 0.6, 0.0, 0.0, 0.0);
+               }
+            }
+            case "helix" -> {
+               for (int i = 0; i < this.count; i++) {
+                  double t = (double) i / this.count;
+                  double a = t * Math.PI * 8.0;
+                  double y = cy - this.height * 0.5 + t * this.height;
+                  world.addParticleClient(P.apply(i), cx + Math.cos(a) * this.radius, y, cz + Math.sin(a) * this.radius, 0.0, 0.02, 0.0);
+                  world.addParticleClient(P.apply(i + 1), cx + Math.cos(a + Math.PI) * this.radius, y, cz + Math.sin(a + Math.PI) * this.radius, 0.0, 0.02, 0.0);
+               }
+            }
+            case "shockwave" -> {
+               for (int k = 0; k < 3; k++) {
+                  for (int i = 0; i < this.count; i++) {
+                     double a = (double) i / this.count * Math.PI * 2.0;
+                     double sp = this.speed * (1.0 + k * 0.7);
+                     double rr = this.radius * (0.3 + 0.25 * k);
+                     world.addParticleClient(P.apply(i + k * 5), cx + Math.cos(a) * rr, cy - this.height * 0.4, cz + Math.sin(a) * rr, Math.cos(a) * sp, 0.005, Math.sin(a) * sp);
+                  }
+               }
+            }
+            case "fountain" -> {
+               for (int i = 0; i < this.count; i++) {
+                  double a = r.nextDouble() * Math.PI * 2.0;
+                  double out = r.nextDouble() * this.speed;
+                  world.addParticleClient(P.apply(i), cx, cy - this.height * 0.3, cz, Math.cos(a) * out, 0.18 + r.nextDouble() * 0.2, Math.sin(a) * out);
                }
             }
             default -> { // ring
@@ -330,7 +424,7 @@ public final class CritEffectsManager {
                   double a = (double) i / this.count * Math.PI * 2.0;
                   double vx = Math.cos(a) * this.speed;
                   double vz = Math.sin(a) * this.speed;
-                  world.addParticleClient(pe, cx + Math.cos(a) * this.radius, cy, cz + Math.sin(a) * this.radius, vx, 0.01, vz);
+                  world.addParticleClient(P.apply(i), cx + Math.cos(a) * this.radius, cy, cz + Math.sin(a) * this.radius, vx, 0.01, vz);
                }
             }
          }
@@ -402,6 +496,8 @@ public final class CritEffectsManager {
 
          Also still supported:
          ring / burst / column / spiral / halo / lightning  (vanilla-particle shapes)
+         helix / shockwave / fountain                        (new vanilla-particle shapes)
+         "color": "rainbow"                                   (cycles hues per particle)
          model + "model": "file.obj" or "file.bbmodel"       (your 3D models)
 
          All presets use "color" from the JSON and the global throttle.

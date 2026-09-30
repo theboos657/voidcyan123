@@ -10,10 +10,12 @@ public class TotemTraceSettingsScreen extends BaseSettingsScreen {
 
    @Override
    protected void buildSettings() {
+      this.addColorPicker("Color", () -> VoidCyanClient.totemTraceColorRed << 16 | VoidCyanClient.totemTraceColorGreen << 8 | VoidCyanClient.totemTraceColorBlue, rgb -> {
+         VoidCyanClient.totemTraceColorRed = rgb >> 16 & 255;
+         VoidCyanClient.totemTraceColorGreen = rgb >> 8 & 255;
+         VoidCyanClient.totemTraceColorBlue = rgb & 255;
+      });
       this.addIntSlider("Color Alpha", 0, 255, () -> VoidCyanClient.totemTraceColorAlpha, val -> VoidCyanClient.totemTraceColorAlpha = val);
-      this.addIntSlider("Color Blue", 0, 255, () -> VoidCyanClient.totemTraceColorBlue, val -> VoidCyanClient.totemTraceColorBlue = val);
-      this.addIntSlider("Color Green", 0, 255, () -> VoidCyanClient.totemTraceColorGreen, val -> VoidCyanClient.totemTraceColorGreen = val);
-      this.addIntSlider("Color Red", 0, 255, () -> VoidCyanClient.totemTraceColorRed, val -> VoidCyanClient.totemTraceColorRed = val);
       this.addBoolean("Detect Others", () -> VoidCyanClient.totemTraceDetectOthers, val -> VoidCyanClient.totemTraceDetectOthers = val);
       this.addBoolean("Detect Self", () -> VoidCyanClient.totemTraceDetectSelf, val -> VoidCyanClient.totemTraceDetectSelf = val);
       this.addIntSlider("Duration", 1, 60, () -> VoidCyanClient.totemTraceDuration, val -> VoidCyanClient.totemTraceDuration = val);

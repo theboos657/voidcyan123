@@ -33,12 +33,12 @@ public class WaypointRenderer {
 
                for (WaypointManager.Waypoint wp : WaypointManager.waypoints) {
                   if (wp.enabled && wp.dimension.equals(currentDim)) {
-                     double minX = wp.x;
-                     double minY = wp.y;
-                     double minZ = wp.z;
-                     double maxX = minX + 1.0;
-                     double maxY = minY + 1.0;
-                     double maxZ = minZ + 1.0;
+                     double minX = wp.x - wp.radius;
+                     double minY = wp.y - wp.radius;
+                     double minZ = wp.z - wp.radius;
+                     double maxX = wp.x + wp.radius + 1.0;
+                     double maxY = wp.y + wp.radius + 1.0;
+                     double maxZ = wp.z + wp.radius + 1.0;
                      Box box = new Box(minX, minY, minZ, maxX, maxY, maxZ);
                      VoxelShape shape = VoxelShapes.cuboid(box);
                      if (wp.showBlockDisplay) {

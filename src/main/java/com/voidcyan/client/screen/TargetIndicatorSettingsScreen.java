@@ -16,8 +16,32 @@ public class TargetIndicatorSettingsScreen extends Screen {
    private static final String[] SOUL_TEXTURE_OPTIONS = new String[]{"FIREFLY", "ALT"};
    private static final String[] SOUL_STYLE_OPTIONS = new String[]{"SMOKE", "PLASMA"};
 
+   /** Friendly display names for the stored style / texture ids (config values stay unchanged). */
+   private static String label(String id) {
+      return switch (id.toUpperCase()) {
+         case "LEGACY" -> "Classic";
+         case "SOUL" -> "Orbit";
+         case "SPIRAL" -> "Spiral";
+         case "TOPKA" -> "Scanner";
+         case "PLUS" -> "Plus";
+         case "MARKER" -> "Marker";
+         case "BO" -> "Reticle";
+         case "SIMPLE" -> "Simple";
+         case "SCIFI" -> "Tech";
+         case "JEKA" -> "Badge";
+         case "AMONGUS" -> "Bean";
+         case "SKULL" -> "Skull";
+         case "VEGAS" -> "Neon";
+         case "FIREFLY" -> "Glow";
+         case "ALT" -> "Soft Glow";
+         case "SMOKE" -> "Smoke";
+         case "PLASMA" -> "Plasma";
+         default -> id;
+      };
+   }
+
    public TargetIndicatorSettingsScreen(Screen parent) {
-      super(Text.literal("Target Indicator Settings"));
+      super(Text.literal("Target Marker Settings"));
       this.parent = parent;
    }
 
@@ -80,6 +104,7 @@ public class TargetIndicatorSettingsScreen extends Screen {
       context.fill(boxX, y + boxHeight - 1, boxX + boxWidth, y + boxHeight, VoidCyanClient.getPrimaryColor());
       context.fill(boxX, y + 1, boxX + 1, y + boxHeight - 1, VoidCyanClient.getPrimaryColor());
       context.fill(boxX + boxWidth - 1, y + 1, boxX + boxWidth, y + boxHeight - 1, VoidCyanClient.getPrimaryColor());
+      value = label(value);
       int textWidth = this.textRenderer.getWidth(value);
       context.drawTextWithShadow(this.textRenderer, Text.literal(value), boxX + (boxWidth - textWidth) / 2, y + 4, VoidCyanClient.getPrimaryColor());
    }
@@ -106,19 +131,19 @@ public class TargetIndicatorSettingsScreen extends Screen {
       context.fill(x, y + panelHeight - 1, x + panelWidth, y + panelHeight, VoidCyanClient.getPrimaryColor());
       context.fill(x, y + 1, x + 1, y + panelHeight - 1, VoidCyanClient.getPrimaryColor());
       context.fill(x + panelWidth - 1, y + 1, x + panelWidth, y + panelHeight - 1, VoidCyanClient.getPrimaryColor());
-      context.drawTextWithShadow(this.textRenderer, Text.literal("Attack Indicator Settings"), x + 15, y + 12, VoidCyanClient.getPrimaryColor());
+      context.drawTextWithShadow(this.textRenderer, Text.literal("Target Marker Settings"), x + 15, y + 12, VoidCyanClient.getPrimaryColor());
       int tabX = x + 15;
       int tabY = y + 30;
       int tabWidth = 72;
       int tabGap = 8;
       this.drawTabButton(context, tabX, tabY, tabWidth, "General", this.currentTab == 0);
       this.drawTabButton(context, tabX + tabWidth + tabGap, tabY, tabWidth, "Crosshair", this.currentTab == 1);
-      this.drawTabButton(context, tabX + 2 * (tabWidth + tabGap), tabY, tabWidth, "Legacy", this.currentTab == 2);
-      this.drawTabButton(context, tabX + 3 * (tabWidth + tabGap), tabY, tabWidth, "Soul", this.currentTab == 3);
-      this.drawTabButton(context, tabX + 4 * (tabWidth + tabGap), tabY, tabWidth, "Topka", this.currentTab == 4);
+      this.drawTabButton(context, tabX + 2 * (tabWidth + tabGap), tabY, tabWidth, "Classic", this.currentTab == 2);
+      this.drawTabButton(context, tabX + 3 * (tabWidth + tabGap), tabY, tabWidth, "Orbit", this.currentTab == 3);
+      this.drawTabButton(context, tabX + 4 * (tabWidth + tabGap), tabY, tabWidth, "Scanner", this.currentTab == 4);
       int contentY = y + 65;
       if (this.currentTab == 0) {
-         this.drawToggle(context, x + 20, contentY, "Attack Indicator Enabled", VoidCyanClient.attackIndicatorEnabled);
+         this.drawToggle(context, x + 20, contentY, "Marker Enabled", VoidCyanClient.attackIndicatorEnabled);
          contentY += 25;
          this.drawSelector(context, x + 20, contentY, "Style", VoidCyanClient.attackIndicatorStyle);
          contentY += 25;
@@ -138,17 +163,17 @@ public class TargetIndicatorSettingsScreen extends Screen {
          contentY += 35;
          this.drawSlider(context, x + 20, contentY, "Spin Speed", VoidCyanClient.targetIndicatorSpinSpeed, 0.0F, 5.0F, "x");
       } else if (this.currentTab == 2) {
-         this.drawSelector(context, x + 20, contentY, "Legacy Texture", VoidCyanClient.attackIndicatorLegacyTexture);
+         this.drawSelector(context, x + 20, contentY, "Classic Texture", VoidCyanClient.attackIndicatorLegacyTexture);
          contentY += 35;
-         this.drawSlider(context, x + 20, contentY, "Legacy Scale", VoidCyanClient.attackIndicatorLegacyScale, 10.0F, 200.0F, "");
+         this.drawSlider(context, x + 20, contentY, "Classic Scale", VoidCyanClient.attackIndicatorLegacyScale, 10.0F, 200.0F, "");
          contentY += 35;
-         this.drawSlider(context, x + 20, contentY, "Legacy Alpha", VoidCyanClient.attackIndicatorLegacyAlpha, 0.0F, 100.0F, "%");
+         this.drawSlider(context, x + 20, contentY, "Classic Opacity", VoidCyanClient.attackIndicatorLegacyAlpha, 0.0F, 100.0F, "%");
          contentY += 35;
          this.drawSlider(context, x + 20, contentY, "Roll Speed", VoidCyanClient.attackIndicatorLegacyRollSpeed, 0.0F, 500.0F, "");
       } else if (this.currentTab == 3) {
-         this.drawSelector(context, x + 20, contentY, "Soul Texture", VoidCyanClient.attackIndicatorSoulTexture);
+         this.drawSelector(context, x + 20, contentY, "Orbit Texture", VoidCyanClient.attackIndicatorSoulTexture);
          contentY += 25;
-         this.drawSelector(context, x + 20, contentY, "Soul Blend Style", VoidCyanClient.attackIndicatorSoulStyle);
+         this.drawSelector(context, x + 20, contentY, "Orbit Blend", VoidCyanClient.attackIndicatorSoulStyle);
          contentY += 35;
          int leftColX = x + 20;
          int rightColX = x + 215;
@@ -166,7 +191,7 @@ public class TargetIndicatorSettingsScreen extends Screen {
          contentY += 35;
          this.drawSlider(context, leftColX, contentY, "Subdivisions", VoidCyanClient.attackIndicatorSoulSubdivision, 1.0F, 10.0F, "");
       } else if (this.currentTab == 4) {
-         this.drawSlider(context, x + 20, contentY, "Topka Scan Radius", VoidCyanClient.attackIndicatorTopkaRadius, 10.0F, 200.0F, "");
+         this.drawSlider(context, x + 20, contentY, "Scan Radius", VoidCyanClient.attackIndicatorTopkaRadius, 10.0F, 200.0F, "");
          contentY += 35;
          this.drawSlider(context, x + 20, contentY, "Scan Speed", VoidCyanClient.attackIndicatorTopkaSpeed, 0.1F, 10.0F, "");
       }

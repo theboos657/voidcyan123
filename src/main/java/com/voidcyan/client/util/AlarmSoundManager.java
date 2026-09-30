@@ -32,18 +32,6 @@ public class AlarmSoundManager {
       if (runDir == null) {
          runDir = new File(".");
       }
-      File dir = new File(runDir, "alarms");
-      if (!dir.exists()) {
-         dir.mkdirs();
-      }
-      return dir;
-   }
-
-   public static File getSecondaryAlarmsDirectory() {
-      File runDir = MinecraftClient.getInstance().runDirectory;
-      if (runDir == null) {
-         runDir = new File(".");
-      }
       File dir = new File(runDir, "voidcyan/alarms");
       if (!dir.exists()) {
          dir.mkdirs();
@@ -83,14 +71,7 @@ public class AlarmSoundManager {
       List<String> list = new ArrayList<>();
       list.add(DEFAULT_SOUND);
 
-      File primary = getAlarmsDirectory();
-      scanDirectory(primary, list);
-
-      File secondary = getSecondaryAlarmsDirectory();
-      if (!secondary.equals(primary)) {
-         scanDirectory(secondary, list);
-      }
-
+      scanDirectory(getAlarmsDirectory(), list);
       return list.toArray(new String[0]);
    }
 
@@ -118,11 +99,8 @@ public class AlarmSoundManager {
       if (soundName == null || soundName.isEmpty() || soundName.equalsIgnoreCase(DEFAULT_SOUND)) {
          return null;
       }
-      File f1 = new File(getAlarmsDirectory(), soundName);
-      if (f1.exists() && f1.isFile()) return f1;
-      File f2 = new File(getSecondaryAlarmsDirectory(), soundName);
-      if (f2.exists() && f2.isFile()) return f2;
-      return null;
+      File f = new File(getAlarmsDirectory(), soundName);
+      return f.exists() && f.isFile() ? f : null;
    }
 
    public static void playAlarm(String soundName) {

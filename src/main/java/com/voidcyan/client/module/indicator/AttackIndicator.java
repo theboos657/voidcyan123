@@ -1,4 +1,4 @@
-package com.voidcyan.client.module.soupvisuals;
+package com.voidcyan.client.module.indicator;
 
 import com.voidcyan.client.VoidCyanClient;
 import java.awt.Color;

@@ -29,8 +29,8 @@ public class ColorPickerModal {
       void onApply(int argb);
    }
 
-   private final int width = 300;
-   private final int height = 336;
+   private final int width = 330;
+   private final int height = 396;
    private final String title;
    private final String subtitle;
    private final int initialArgb;
@@ -68,6 +68,19 @@ public class ColorPickerModal {
    private int alphaTrackY;
    private int alphaTrackW;
    private int resetY;
+   private int prevY;
+   private int presetY;
+   private float fit = 1.0F;
+
+   private double ux(double mx) {
+      double cx = this.x + this.width / 2.0;
+      return cx + (mx - cx) / this.fit;
+   }
+
+   private double uy(double my) {
+      double cy = this.y + this.height / 2.0;
+      return cy + (my - cy) / this.fit;
+   }
 
    public ColorPickerModal(int centerX, int centerY, int initialArgb, String title, String subtitle, ApplyCallback onApply) {
       this.x = centerX - this.width / 2;
@@ -118,7 +131,9 @@ public class ColorPickerModal {
       this.alphaTrackX = this.svX;
       this.alphaTrackY = this.svY + this.svS + 34;
       this.alphaTrackW = this.width - 28;
-      this.resetY = this.y + this.height - 34;
+      this.prevY = this.alphaTrackY + 20;
+      this.presetY = this.prevY + 26;
+      this.resetY = this.presetY + 16 + 14;
    }
 
    private static TextRenderer tr() {
@@ -128,12 +143,27 @@ public class ColorPickerModal {
    // ================= Rendering =================
 
    public void render(DrawContext context, int mouseX, int mouseY, int screenW, int screenH) {
+      this.fit = Math.min(1.0F, Math.min((screenH - 8.0F) / this.height, (screenW - 8.0F) / this.width));
+      if (this.fit < 1.0F) {
+         this.x = (screenW - this.width) / 2;
+         this.y = (screenH - this.height) / 2;
+      } else {
+         this.x = Math.max(4, Math.min(this.x, screenW - this.width - 4));
+         this.y = Math.max(4, Math.min(this.y, screenH - this.height - 4));
+      }
+
       this.computeLayout();
+      context.fill(0, 0, screenW, screenH, 140 << 24);
+      double cxm = this.x + this.width / 2.0;
+      double cym = this.y + this.height / 2.0;
+      mouseX = (int) this.ux(mouseX);
+      mouseY = (int) this.uy(mouseY);
+      context.getMatrices().pushMatrix();
+      context.getMatrices().translate((float) cxm, (float) cym);
+      context.getMatrices().scale(this.fit, this.fit);
+      context.getMatrices().translate((float) -cxm, (float) -cym);
       TextRenderer tr = tr();
       int prim = VoidCyanClient.getPrimaryColor() & 0x00FFFFFF;
-
-      // Dim backdrop.
-      context.fill(0, 0, screenW, screenH, 140 << 24);
 
       // Modal panel.
       int OPA = 0xFF000000;
@@ -141,33 +171,26 @@ public class ColorPickerModal {
       GuiStyle.roundedOutline(context, this.x, this.y, this.width, this.height, 8, (110 << 24) | prim);
 
       // Title block with palette icon.
-      GuiStyle.roundedRect(context, this.x + 14, this.y + 12, 30, 30, 6, (90 << 24) | prim);
-      context.fill(this.x + 21, this.y + 20, this.x + 24, this.y + 23, 0xFFFFFFFF);
-      context.fill(this.x + 27, this.y + 26, this.x + 30, this.y + 29, 0xFFFFFFFF);
-      context.fill(this.x + 21, this.y + 31, this.x + 24, this.y + 34, 0xFFFFFFFF);
+      context.fill(this.x + 14, this.y + 12, this.x + 46, this.y + 42, OPA | hsvToRgb(this.hue, this.sat, this.val));
+      GuiStyle.roundedOutline(context, this.x + 14, this.y + 12, 32, 30, 6, (150 << 24) | 0xFFFFFF);
       GuiStyle.text(context, tr, this.title, this.x + 52, this.y + 15, OPA | 0xFFFFFF);
       if (this.subtitle != null && !this.subtitle.isEmpty()) {
          GuiStyle.text(context, tr, this.subtitle, this.x + 52, this.y + 26, (150 << 24) | 0xFFFFFF);
       }
 
-      // Close X.
-      boolean xHov = mouseX >= this.x + this.width - 22 && mouseX <= this.x + this.width - 8 && mouseY >= this.y + 10 && mouseY <= this.y + 24;
-      GuiStyle.text(context, tr, "✕", this.x + this.width - 21, this.y + 13, ((xHov ? 255 : 150) << 24) | 0xFFFFFF);
+      // Close button.
+      int closeW = 20;
+      int closeH = 18;
+      int closeX = this.x + this.width - closeW - 8;
+      int closeY = this.y + 8;
+      boolean xHov = mouseX >= closeX && mouseX <= closeX + closeW && mouseY >= closeY && mouseY <= closeY + closeH;
+      GuiStyle.roundedRect(context, closeX, closeY, closeW, closeH, 4, OPA | (xHov ? 0xE04848 : 0xB03030));
+      GuiStyle.textCentered(context, tr, "✕", closeX + closeW / 2, closeY + 5, OPA | 0xFFFFFF);
 
       // ---- SV square: hue fill + white gradient (left) + black gradient (top).
-      int baseHue = OPA | hsvToRgb(this.hue, 1.0F, 1.0F);
-      context.fill(this.svX, this.svY, this.svX + this.svS, this.svY + this.svS, baseHue);
-      int steps = 24;
-      int wStep = this.svS / steps;
-      for (int i = 0; i < steps; i++) {
-         int w = i * wStep;
-         int aw = 255 - i * 255 / steps;
-         context.fill(this.svX + w, this.svY, this.svX + w + wStep + 1, this.svY + this.svS, (aw << 24) | 0xFFFFFF);
-      }
-      for (int i = 0; i < steps; i++) {
-         int hh = i * wStep;
-         int ab = 255 - i * 255 / steps;
-         context.fill(this.svX, this.svY + hh, this.svX + this.svS, this.svY + hh + wStep + 1, ab << 24);
+      for (int i = 0; i < this.svS; i++) {
+         context.fillGradient(this.svX + i, this.svY, this.svX + i + 1, this.svY + this.svS,
+            OPA | hsvToRgb(this.hue, (float)i / (this.svS - 1), 1.0F), OPA);
       }
       GuiStyle.roundedOutline(context, this.svX, this.svY, this.svS, this.svS, 2, (150 << 24) | 0xFFFFFF);
       int curX = this.svX + (int)(this.sat * this.svS);
@@ -191,7 +214,7 @@ public class ColorPickerModal {
       int r = rgb >> 16 & 0xFF;
       int g = rgb >> 8 & 0xFF;
       int b = rgb & 0xFF;
-      int fieldX = this.hueX + this.hueStripW + 10;
+      int fieldX = this.hueX + this.hueStripW + 26;
       int fieldW = this.x + this.width - 14 - fieldX;
       this.renderField(context, F_HEX, String.format("#%02X%02X%02X", r, g, b), fieldX, this.svY, fieldW);
       this.renderField(context, F_R, String.valueOf(r), fieldX, this.svY + 30, fieldW);
@@ -214,12 +237,12 @@ public class ColorPickerModal {
       GuiStyle.text(context, tr, pct, this.alphaTrackX + this.alphaTrackW + 8, this.alphaTrackY + 1, (200 << 24) | 0xFFFFFF);
 
       // ---- Preview + presets.
-      int prevY = this.alphaTrackY + 22;
+      int prevY = this.prevY;
       int prevS = 20;
       context.fill(this.alphaTrackX, prevY, this.alphaTrackX + prevS, prevY + prevS, argbNow);
       GuiStyle.roundedOutline(context, this.alphaTrackX, prevY, prevS, prevS, 3, (140 << 24) | 0xFFFFFF);
       GuiStyle.text(context, tr, "Presets", this.alphaTrackX + prevS + 10, prevY + 5, (160 << 24) | 0xFFFFFF);
-      int pY = prevY + 26;
+      int pY = this.presetY;
       int pS = 16;
       int pGap = (this.alphaTrackW - PRESETS.length * pS) / (PRESETS.length - 1);
       for (int i = 0; i < PRESETS.length; i++) {
@@ -240,6 +263,7 @@ public class ColorPickerModal {
       boolean aHov = mouseX >= applyX && mouseX <= applyX + applyW && mouseY >= this.resetY && mouseY <= this.resetY + 22;
       GuiStyle.roundedRect(context, applyX, this.resetY, applyW, 22, 4, ((aHov ? 255 : 225) << 24) | prim);
       GuiStyle.textCentered(context, tr, "Apply", applyX + applyW / 2, this.resetY + 7, OPA | 0x14101A);
+      context.getMatrices().popMatrix();
    }
 
    private void renderField(DrawContext context, int fieldId, String value, int x, int y, int width) {
@@ -261,15 +285,19 @@ public class ColorPickerModal {
 
    /** Returns true when the click was consumed by the modal. */
    public boolean mouseClicked(Click click) {
-      double mx = click.x();
-      double my = click.y();
+      double mx = this.ux(click.x());
+      double my = this.uy(click.y());
       int button = click.button();
       boolean inside = mx >= this.x && mx <= this.x + this.width && my >= this.y && my <= this.y + this.height;
       if (button != 0) return inside;
       this.computeLayout();
       TextRenderer tr = tr();
 
-      if (mx >= this.x + this.width - 22 && mx <= this.x + this.width - 8 && my >= this.y + 10 && my <= this.y + 24) {
+      int closeW = 20;
+      int closeH = 18;
+      int closeX = this.x + this.width - closeW - 8;
+      int closeY = this.y + 8;
+      if (mx >= closeX && mx <= closeX + closeW && my >= closeY && my <= closeY + closeH) {
          this.open = false;
          return true;
       }
@@ -289,7 +317,7 @@ public class ColorPickerModal {
       }
 
       int rgb = hsvToRgb(this.hue, this.sat, this.val);
-      int fieldX = this.hueX + this.hueStripW + 10;
+      int fieldX = this.hueX + this.hueStripW + 26;
       int fieldW = this.x + this.width - 14 - fieldX;
       for (int i = 0; i < 5; i++) {
          int fy = this.svY + i * 30;
@@ -313,8 +341,7 @@ public class ColorPickerModal {
          return true;
       }
 
-      int prevY = this.alphaTrackY + 22;
-      int pY = prevY + 26;
+      int pY = this.presetY;
       int pS = 16;
       int pGap = (this.alphaTrackW - PRESETS.length * pS) / (PRESETS.length - 1);
       for (int i = 0; i < PRESETS.length; i++) {
@@ -345,8 +372,8 @@ public class ColorPickerModal {
    }
 
    public boolean mouseDragged(Click click) {
-      double mx = click.x();
-      double my = click.y();
+      double mx = this.ux(click.x());
+      double my = this.uy(click.y());
       if (this.draggingSv) this.applySv(mx, my);
       if (this.draggingHue) this.applyHue(my);
       if (this.draggingAlpha) this.applyAlpha(mx);

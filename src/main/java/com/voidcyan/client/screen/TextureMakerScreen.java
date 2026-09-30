@@ -600,6 +600,18 @@ public class TextureMakerScreen extends Screen {
       this.dynamicPreviewTexture.upload();
    }
 
+   /** Marks a preview render state so the renderer mixins swap in the live canvas texture. */
+   private EntityRenderState tagPreviewState(EntityRenderState state) {
+      if (this.dynamicPreviewTextureId != null) {
+         if (this.armorLayerModel != null) {
+            VoidCyanClient.previewArmorTextures.put(state, this.dynamicPreviewTextureId);
+         } else {
+            VoidCyanClient.previewBaseTextures.put(state, this.dynamicPreviewTextureId);
+         }
+      }
+      return state;
+   }
+
    @SuppressWarnings({"rawtypes", "unchecked"})
    public static EntityRenderState getOrCreateEntityRenderState(LivingEntity entity) {
       MinecraftClient client = MinecraftClient.getInstance();
@@ -622,7 +634,8 @@ public class TextureMakerScreen extends Screen {
 
    @Override
    public void close() {
-      VoidCyanClient.customPreviewTexture = null;
+      VoidCyanClient.previewBaseTextures.clear();
+      VoidCyanClient.previewArmorTextures.clear();
       DynamicItemPreviewer.endOverride();
       if (this.dynamicPreviewTexture != null) {
          this.dynamicPreviewTexture.close();
@@ -694,7 +707,7 @@ public class TextureMakerScreen extends Screen {
    private static final int TOOL_ROW2_Y = 52;
    /** Slot indexes into the tool row: 0 = mode toggle, 1..N = tools, 5 = grid/reset. */
    private static final int HIT_MODE = 0;
-   private static final int HIT_GRID_RESET = 5;
+   private static final int HIT_GRID_RESET = 9;
 
    private int getToolX(int slot, int modeWidth, boolean targetIs3d) {
       int x = 12;
@@ -738,7 +751,7 @@ public class TextureMakerScreen extends Screen {
 
       int gw = this.textRenderer.getWidth(this.showGrid ? "Grid: ON" : "Grid: OFF") + 8;
       int rw = this.textRenderer.getWidth("↺ Reset View") + 8;
-      int endX = getToolX(5, modeWidth, targetIs3d);
+      int endX = getToolX(9, modeWidth, targetIs3d);
       int endW = !this.viewMode3D || !targetIs3d ? gw : rw;
       if (px >= endX && px <= endX + endW) return HIT_GRID_RESET;
       return -1;
@@ -1191,16 +1204,16 @@ public class TextureMakerScreen extends Screen {
          // Grid toggle button (only in 2D mode)
          String gridLbl = this.showGrid ? "Grid: ON" : "Grid: OFF";
          int gw = this.textRenderer.getWidth(gridLbl) + 8;
-         boolean gHov = vmHoverIdx == 5;
-         context.fill(getToolX(5, vmw, targetIs3d), toolRow2Y, getToolX(5, vmw, targetIs3d) + gw, toolRow2Y + 16, this.showGrid ? 0x4000F5FF : (gHov ? 0x50FFFFFF : 0x20FFFFFF));
-         context.drawTextWithShadow(this.textRenderer, gridLbl, getToolX(5, vmw, targetIs3d) + 4, toolRow2Y + 4, this.showGrid ? 0xFF00F5FF : 0xFFAAAAAA);
+         boolean gHov = vmHoverIdx == 9;
+         context.fill(getToolX(9, vmw, targetIs3d), toolRow2Y, getToolX(9, vmw, targetIs3d) + gw, toolRow2Y + 16, this.showGrid ? 0x4000F5FF : (gHov ? 0x50FFFFFF : 0x20FFFFFF));
+         context.drawTextWithShadow(this.textRenderer, gridLbl, getToolX(9, vmw, targetIs3d) + 4, toolRow2Y + 4, this.showGrid ? 0xFF00F5FF : 0xFFAAAAAA);
       } else {
          // Reset View button (in 3D mode)
          String rstLbl = "↺ Reset View";
          int rw = this.textRenderer.getWidth(rstLbl) + 8;
-         boolean rHov = vmHoverIdx == 5;
-         context.fill(getToolX(5, vmw, targetIs3d), toolRow2Y, getToolX(5, vmw, targetIs3d) + rw, toolRow2Y + 16, rHov ? 0x50FFFFFF : 0x20FFFFFF);
-         context.drawTextWithShadow(this.textRenderer, rstLbl, getToolX(5, vmw, targetIs3d) + 4, toolRow2Y + 4, 0xFFCCCCCC);
+         boolean rHov = vmHoverIdx == 9;
+         context.fill(getToolX(9, vmw, targetIs3d), toolRow2Y, getToolX(9, vmw, targetIs3d) + rw, toolRow2Y + 16, rHov ? 0x50FFFFFF : 0x20FFFFFF);
+         context.drawTextWithShadow(this.textRenderer, rstLbl, getToolX(9, vmw, targetIs3d) + 4, toolRow2Y + 4, 0xFFCCCCCC);
       }
 
       // ================= MAIN CANVAS / 3D VIEWPORT AREA =================
@@ -1250,10 +1263,6 @@ public class TextureMakerScreen extends Screen {
 
             context.enableScissor(vpX, vpY, vpX + maxCanvasW, vpY + maxCanvasH);
 
-            if (this.dynamicPreviewTextureId != null) {
-               VoidCyanClient.customPreviewTexture = this.dynamicPreviewTextureId;
-            }
-
             Quaternionf rot = new Quaternionf().rotateZ((float) Math.PI);
             rot.rotateY((float) Math.toRadians(this.cameraYaw));
             rot.rotateX((float) Math.toRadians(this.cameraPitch));
@@ -1264,8 +1273,9 @@ public class TextureMakerScreen extends Screen {
                0.0F
             );
 
+            this.updateDynamicPreviewTexture();
             context.addEntity(
-               getOrCreateEntityRenderState(entity),
+               this.tagPreviewState(getOrCreateEntityRenderState(entity)),
                scale,
                pos,
                rot,
@@ -1273,7 +1283,6 @@ public class TextureMakerScreen extends Screen {
                vpX, vpY, vpX + maxCanvasW, vpY + maxCanvasH
             );
 
-            VoidCyanClient.customPreviewTexture = null;
             context.disableScissor();
 
             // Single raycast per frame, shared by drag-painting and hover display (perf:
@@ -1394,12 +1403,6 @@ public class TextureMakerScreen extends Screen {
       context.fill(rightPanelX, prevCardY, rightPanelX + rightPanelW, prevCardY + 1, 0x30FFFFFF);
       context.drawTextWithShadow(this.textRenderer, is3d ? "3D LIVE PREVIEW" : "LIVE PREVIEW", rightPanelX + 6, prevCardY + 4, 0xFF888899);
 
-      // When painting a worn-armor texture, the live preview must reflect the canvas:
-      // redirect the armor layer model onto the live canvas texture while the entity draws.
-      if (is3d && this.armorLayerModel != null) {
-         VoidCyanClient.customPreviewTexture = this.dynamicPreviewTextureId;
-      }
-
       if (is3d) {
          // Render 3D entity interactive preview
          int entBoxW = 76;
@@ -1417,7 +1420,15 @@ public class TextureMakerScreen extends Screen {
          int baseSize = 25;
          int size = Math.max(8, Math.min(32, (int)(baseSize * (1.8f / Math.max(0.8f, maxDim)))));
 
-         InventoryScreen.drawEntity(context, entX1, entY1, entX2, entY2, size, 0.0625F, -1, -1, previewEnt);
+         // Drawn via addEntity (not InventoryScreen.drawEntity) so the render state can be
+         // tagged with the live canvas texture.
+         Quaternionf sideRot = new Quaternionf().rotateZ((float) Math.PI);
+         Vector3f sidePos = new Vector3f(0.0F, entHeight / 2.0F + 0.0625F, 0.0F);
+         context.addEntity(
+            this.tagPreviewState(getOrCreateEntityRenderState(previewEnt)),
+            size, sidePos, sideRot, new Quaternionf(),
+            entX1, entY1, entX2, entY2
+         );
 
          // Alongside 3D preview, also show the 1x texture unwrap
          int p1xX = entX2 + 10;
@@ -1434,9 +1445,7 @@ public class TextureMakerScreen extends Screen {
          context.drawTextWithShadow(this.textRenderer, "Texture", p1xX, p1xY + this.canvasHeight * p1xScale + 3, 0xFF777788);
       }
 
-      if (is3d && this.armorLayerModel != null) {
-         VoidCyanClient.customPreviewTexture = null;
-      } else {
+      if (!is3d) {
          // Render 1x Preview
          int p1xX = rightPanelX + 6;
          int p1xY = prevCardY + 16;
@@ -1868,9 +1877,7 @@ public class TextureMakerScreen extends Screen {
                         return true;
                      }
                   }
-                  // Clicking outside entity in 3D mode allows orbiting
-                  this.isOrbiting = true;
-                  this.lastDragBtn = btn;
+                  // Missed the model: with a paint tool do nothing (right-drag or Orbit tool rotates).
                   return true;
                }
             }

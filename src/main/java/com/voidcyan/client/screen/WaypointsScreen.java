@@ -29,6 +29,7 @@ public class WaypointsScreen extends Screen {
    private String xInput = "";
    private String yInput = "";
    private String zInput = "";
+   private String radiusInput = "";
    private String iconInput = "minecraft:compass";
    private int selectedColor = 16777215;
    private boolean showLabel = true;
@@ -59,6 +60,7 @@ public class WaypointsScreen extends Screen {
       this.xInput = "";
       this.yInput = "";
       this.zInput = "";
+      this.radiusInput = "";
       this.iconInput = "minecraft:compass";
       this.selectedColor = 16777215;
       this.showLabel = true;
@@ -76,6 +78,7 @@ public class WaypointsScreen extends Screen {
       this.xInput = String.valueOf(wp.x);
       this.yInput = String.valueOf(wp.y);
       this.zInput = String.valueOf(wp.z);
+      this.radiusInput = wp.radius > 0 ? String.valueOf(wp.radius) : "";
       this.iconInput = wp.iconItem;
       this.selectedColor = wp.color;
       this.showLabel = wp.showLabel;
@@ -177,7 +180,8 @@ public class WaypointsScreen extends Screen {
       context.fill(rx + rw - 50, fy + 12, rx + rw - 10, fy + 32, 1610612736);
       this.drawBorder(context, rx + rw - 50, fy + 12, 40, 20, -11184811);
       context.drawTextWithShadow(this.textRenderer, Text.literal("Copy"), rx + rw - 42, fy + 18, -1);
-      int sy = fy + 50;
+      this.drawInput(context, "Fill Radius (0 = point)", this.radiusInput, this.activeField.equals("radius"), rx + 10, fy + 34, 150);
+      int sy = fy + 76;
       int sectionW = (rw - 30) / 2;
       this.drawSectionHeader(context, "Label", this.showLabel, rx + 10, sy, sectionW);
       this.drawBorder(context, rx + 10, sy + 20, sectionW, 120, -11184811);
@@ -335,6 +339,11 @@ public class WaypointsScreen extends Screen {
             }
          }
 
+         if (mouseY >= fy + 46 && mouseY <= fy + 66 && mouseX >= rx + 10 && mouseX <= rx + 160) {
+            this.activeField = "radius";
+            return true;
+         }
+
          if (mouseX >= rx + rw - 50 && mouseX <= rx + rw - 10 && mouseY >= fy + 12 && mouseY <= fy + 32) {
             MinecraftClient.getInstance().keyboard.setClipboard(this.xInput + ", " + this.yInput + ", " + this.zInput);
             return true;
@@ -414,6 +423,7 @@ public class WaypointsScreen extends Screen {
             int x = this.xInput.isEmpty() ? 0 : Integer.parseInt(this.xInput.trim());
             int y = this.yInput.isEmpty() ? 64 : Integer.parseInt(this.yInput.trim());
             int z = this.zInput.isEmpty() ? 0 : Integer.parseInt(this.zInput.trim());
+            int radius = this.radiusInput.isEmpty() ? 0 : Integer.parseInt(this.radiusInput.trim());
             String dim = this.client != null && this.client.world != null ? this.client.world.getRegistryKey().getValue().getPath() : "overworld";
             if (this.editIndex == -1) {
                String icon = this.iconInput.trim().isEmpty() ? "minecraft:compass" : this.iconInput.trim();
@@ -429,7 +439,8 @@ public class WaypointsScreen extends Screen {
                   this.outlineOpacity,
                   this.showLabel,
                   this.showBlockDisplay,
-                  icon
+                  icon,
+                  radius
                );
             } else {
                WaypointManager.Waypoint wp = WaypointManager.waypoints.get(this.editIndex);
@@ -437,6 +448,7 @@ public class WaypointsScreen extends Screen {
                wp.x = x;
                wp.y = y;
                wp.z = z;
+               wp.radius = radius;
                wp.color = this.selectedColor;
                wp.showLabel = this.showLabel;
                wp.showBlockDisplay = this.showBlockDisplay;
@@ -488,6 +500,12 @@ public class WaypointsScreen extends Screen {
             case "icon":
                if (!this.iconInput.isEmpty()) {
                   this.iconInput = this.iconInput.substring(0, this.iconInput.length() - 1);
+               }
+
+               break;
+            case "radius":
+               if (!this.radiusInput.isEmpty()) {
+                  this.radiusInput = this.radiusInput.substring(0, this.radiusInput.length() - 1);
                }
          }
 
@@ -547,6 +565,12 @@ public class WaypointsScreen extends Screen {
                case "z":
                   if ((Character.isDigit(chr) || chr == '-') && this.zInput.length() < 8) {
                      this.zInput = this.zInput + chr;
+                  }
+
+                  return true;
+               case "radius":
+                  if (Character.isDigit(chr) && this.radiusInput.length() < 4) {
+                     this.radiusInput = this.radiusInput + chr;
                   }
 
                   return true;

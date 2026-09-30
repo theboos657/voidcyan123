@@ -67,6 +67,8 @@ public final class CritBillboardFX {
     * space via previewSparks(shape) — no world needed. Pass retrigger=true to
     * restart the burst (hover re-fire in the preview grid).
     */
+   public static final java.util.Map<String, List<FxPart>> CUSTOM_PARTS = new java.util.HashMap<>();
+
    public static void beginPreview(String shape, boolean retrigger) {
       if (shape == null || shape.isEmpty()) return;
       List<Spark> list = PREVIEWS.get(shape);
@@ -81,7 +83,12 @@ public final class CritBillboardFX {
          // capture world sparks, spawn the preview burst, snapshot it, restore
          List<Spark> saved = new ArrayList<>(SPARKS);
          SPARKS.clear();
-         spawnPreset(shape, 0.0, 0.0, 0.0, presetColor(shape));
+         if (shape.startsWith("custom:")) {
+            List<FxPart> cp = CUSTOM_PARTS.get(shape.substring(7));
+            if (cp != null) spawnCustom(cp, 0.0, 0.0, 0.0);
+         } else {
+            spawnPreset(shape, 0.0, 0.0, 0.0, presetColor(shape));
+         }
          list.addAll(SPARKS);
          SPARKS.clear();
          SPARKS.addAll(saved);
@@ -170,6 +177,7 @@ public final class CritBillboardFX {
          // alpha: quick fade-in, long fade-out
          float alphaMul = t < s.fadeIn ? t / s.fadeIn : 1.0F - (t - s.fadeIn) / (1.0F - s.fadeIn);
          alphaMul = Math.max(0.0F, Math.min(1.0F, alphaMul));
+         alphaMul *= 0.86F + 0.14F * (float) Math.sin(s.life * 38.0F + s.x * 13.0);
          int argb = withAlpha(s.color, alphaMul);
          float size = s.size0 + (s.size1 - s.size0) * t;
          if (size <= 0.001F || (argb >>> 24) == 0) continue;
@@ -191,6 +199,18 @@ public final class CritBillboardFX {
             float h2 = size * 1.35F;
             int midA = (int) ((argb >>> 24) * 0.42F);
             quad(buffer, entry, px, py, pz, right, up, h2, (midA << 24 | argb & 0xFFFFFF));
+         }
+
+         // ===== MOTION TRAIL: fading afterimages behind fast sparks =====
+         double spd0 = Math.sqrt(s.vx * s.vx + s.vy * s.vy + s.vz * s.vz);
+         if (spd0 > 1.2 && size > 0.02F) {
+            for (int k = 1; k <= 4; k++) {
+               float back = 0.03F * k;
+               int ga = (int) ((argb >>> 24) * 0.42F / k);
+               if (ga <= 3) break;
+               quad(buffer, entry, px - (float) s.vx * back, py - (float) s.vy * back, pz - (float) s.vz * back,
+                  right, up, size * (1.0F - 0.17F * k), ga << 24 | argb & 0xFFFFFF);
+            }
          }
 
          // ===== CORE PASS (rotated / streaked as before) =====
@@ -378,6 +398,37 @@ public final class CritBillboardFX {
    }
 
    /** Dispatch entry — called from CritEffectsManager.play(). */
+   /** Spawns a user-built particle model (list of FxPart) anchored at x,y,z into the world. */
+   public static void spawnCustom(List<FxPart> parts, double x, double y, double z) {
+      for (FxPart p : parts) {
+         int argb = p.argb();
+         for (float[] q : p.points()) {
+            double sx = q[0], sz = q[2];
+            double vx = q[3] * p.outward - sz * p.spin;
+            double vy = q[4] * p.outward + p.rise;
+            double vz = q[5] * p.outward + sx * p.spin;
+            Spark s = spawn(x + q[0], y + q[1], z + q[2], vx, vy, vz,
+               p.life * rnd(0.85, 1.15), p.size * 2.0, p.size * 0.5, argb, RNG.nextDouble() * 6.28, rnd(-3, 3), p.gravity, 0.985);
+            if (s != null) s.streak = p.streak;
+         }
+      }
+   }
+
+   /** Builds the sparks of a custom model without touching the live world list (editor preview). */
+   public static List<Spark> buildCustom(List<FxPart> parts) {
+      List<Spark> saved = new ArrayList<>(SPARKS);
+      SPARKS.clear();
+      spawnCustom(parts, 0.0, 0.0, 0.0);
+      List<Spark> out = new ArrayList<>(SPARKS);
+      SPARKS.clear();
+      SPARKS.addAll(saved);
+      return out;
+   }
+
+   public static void advanceList(List<Spark> list, float dt) {
+      advance(list, dt);
+   }
+
    public static boolean spawnPreset(String shape, double x, double y, double z, int argb) {
       switch (shape == null ? "" : shape.toLowerCase()) {
          case "blue_comet" -> blueComet(x, y, z, argb);

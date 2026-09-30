@@ -39,6 +39,14 @@ public class EquipmentRendererMixin {
       int outlineColor,
       ModelCommandRenderer.CrumblingOverlayCommand crumblingOverlayCommand
    ) {
+      if (VoidCyanClient.playerModelHideArmor
+         && com.voidcyan.client.util.PlayerModelManager.isFeatureEnabled()
+         && com.voidcyan.client.util.PlayerModelManager.hasModel()
+         && state instanceof net.minecraft.client.render.entity.state.PlayerEntityRenderState ps) {
+         MinecraftClient mc = MinecraftClient.getInstance();
+         if (mc.player != null && (ps.id == mc.player.getId() || VoidCyanClient.playerModelOthers)) return;
+      }
+
       int finalOverlay = overlay;
       if (state instanceof EntityRenderStateAccessor accessor) {
          int id = accessor.voidcyan$getEntityId();
@@ -64,12 +72,15 @@ public class EquipmentRendererMixin {
                   VoidCyanClient.writeVanillaRedToTexture();
                }
                finalOverlay = OverlayTexture.packUv(OverlayTexture.getU(0.0F), 3);
+            } else if (hurt) {
+               VoidCyanClient.writeVanillaRedToTexture();
             }
          }
       }
       RenderLayer finalLayer = renderLayer;
-      if (VoidCyanClient.customPreviewTexture != null) {
-         finalLayer = model.getLayer(VoidCyanClient.customPreviewTexture);
+      net.minecraft.util.Identifier previewTex = VoidCyanClient.previewArmorTextures.get(state);
+      if (previewTex != null) {
+         finalLayer = model.getLayer(previewTex);
       }
       queue.submitModel(model, state, matrices, finalLayer, light, finalOverlay, color, sprite, outlineColor, crumblingOverlayCommand);
    }

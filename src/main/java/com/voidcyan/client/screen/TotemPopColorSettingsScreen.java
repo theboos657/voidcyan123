@@ -19,8 +19,10 @@ public class TotemPopColorSettingsScreen extends BaseSettingsScreen {
       );
       this.addIntSlider("Transparency", 0, 255, () -> VoidCyanClient.totemPopColorAlpha, val -> VoidCyanClient.totemPopColorAlpha = val);
       this.addIntSlider("Duration", 1, 40, () -> VoidCyanClient.totemPopColorDuration, val -> VoidCyanClient.totemPopColorDuration = val);
-      this.addIntSlider("Color Red", 0, 255, () -> VoidCyanClient.totemPopColorRed, val -> VoidCyanClient.totemPopColorRed = val);
-      this.addIntSlider("Color Green", 0, 255, () -> VoidCyanClient.totemPopColorGreen, val -> VoidCyanClient.totemPopColorGreen = val);
-      this.addIntSlider("Color Blue", 0, 255, () -> VoidCyanClient.totemPopColorBlue, val -> VoidCyanClient.totemPopColorBlue = val);
+      this.addColorPicker("Color", () -> VoidCyanClient.totemPopColorRed << 16 | VoidCyanClient.totemPopColorGreen << 8 | VoidCyanClient.totemPopColorBlue, rgb -> {
+         VoidCyanClient.totemPopColorRed = rgb >> 16 & 255;
+         VoidCyanClient.totemPopColorGreen = rgb >> 8 & 255;
+         VoidCyanClient.totemPopColorBlue = rgb & 255;
+      });
    }
 }

@@ -94,7 +94,7 @@ public class ArrayListManager {
    }
 
    static {
-      MODULES.add(new ArrayListManager.ModuleEntry("Inv HUD", () -> VoidCyanClient.isInvHudEnabled));
+      MODULES.add(new ArrayListManager.ModuleEntry("Inventory", () -> VoidCyanClient.isInvHudEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("FPS Counter", () -> VoidCyanClient.isFpsCounterEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Coordinates", () -> VoidCyanClient.isCoordinatesEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("CPS", () -> VoidCyanClient.isCpsEnabled));
@@ -111,6 +111,10 @@ public class ArrayListManager {
       MODULES.add(new ArrayListManager.ModuleEntry("Health Indicators", () -> VoidCyanClient.isHealthIndicatorsEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Combo Counter", () -> VoidCyanClient.isComboCounterEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Ping Display", () -> VoidCyanClient.isPingDisplayEnabled));
+      MODULES.add(new ArrayListManager.ModuleEntry("Shulker Preview", () -> VoidCyanClient.isShulkerPreviewEnabled));
+      MODULES.add(new ArrayListManager.ModuleEntry("Chat", () -> VoidCyanClient.isChatModuleEnabled));
+      MODULES.add(new ArrayListManager.ModuleEntry("Persistent Chat", () -> VoidCyanClient.isChatPersistEnabled));
+      MODULES.add(new ArrayListManager.ModuleEntry("Action Bar", () -> VoidCyanClient.isActionBarEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Server Info", () -> VoidCyanClient.isServerInfoEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Pack Display", () -> VoidCyanClient.isPackDisplayEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Block Info HUD", () -> VoidCyanClient.isBlockIndicatorEnabled));
@@ -120,7 +124,6 @@ public class ArrayListManager {
       MODULES.add(new ArrayListManager.ModuleEntry("Waypoints", () -> VoidCyanClient.isWaypointsEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Entity Counter", () -> VoidCyanClient.isEntityCounterEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("TPS Display", () -> VoidCyanClient.isTpsDisplayEnabled));
-      MODULES.add(new ArrayListManager.ModuleEntry("System Resources", () -> VoidCyanClient.isSystemResourcesEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("Stopwatch", () -> VoidCyanClient.isStopwatchEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("FPS Graph", () -> VoidCyanClient.isFpsGraphEnabled));
       MODULES.add(new ArrayListManager.ModuleEntry("TNT Timer", () -> VoidCyanClient.isTntTimerEnabled));

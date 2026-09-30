@@ -18,8 +18,10 @@ public class DamageColorSettingsScreen extends BaseSettingsScreen {
       this.addBoolean("Apply to Armor Stands", () -> VoidCyanClient.damageColorApplyToArmorStands, val -> VoidCyanClient.damageColorApplyToArmorStands = val);
       this.addIntSlider("Transparency", 0, 255, () -> VoidCyanClient.damageColorAlpha, val -> VoidCyanClient.damageColorAlpha = val);
       this.addIntSlider("Duration", 1, 40, () -> VoidCyanClient.damageColorDuration, val -> VoidCyanClient.damageColorDuration = val);
-      this.addIntSlider("Color Red", 0, 255, () -> VoidCyanClient.damageColorRed, val -> VoidCyanClient.damageColorRed = val);
-      this.addIntSlider("Color Green", 0, 255, () -> VoidCyanClient.damageColorGreen, val -> VoidCyanClient.damageColorGreen = val);
-      this.addIntSlider("Color Blue", 0, 255, () -> VoidCyanClient.damageColorBlue, val -> VoidCyanClient.damageColorBlue = val);
+      this.addColorPicker("Color", () -> VoidCyanClient.damageColorRed << 16 | VoidCyanClient.damageColorGreen << 8 | VoidCyanClient.damageColorBlue, rgb -> {
+         VoidCyanClient.damageColorRed = rgb >> 16 & 255;
+         VoidCyanClient.damageColorGreen = rgb >> 8 & 255;
+         VoidCyanClient.damageColorBlue = rgb & 255;
+      });
    }
 }

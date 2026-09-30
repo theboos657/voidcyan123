@@ -11,9 +11,11 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -22,12 +24,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin({InGameHud.class})
 public class MixinInGameHud {
+   @Shadow
+   private Text overlayMessage;
+   @Shadow
+   private int overlayRemaining;
+   @Shadow
+   private boolean overlayTinted;
    @ModifyVariable(
       method = {"setTitle"},
       at = @At("HEAD"),
       argsOnly = true
    )
    private Text injectNameProtectSetTitle(Text text) {
+      if (text != null && VoidCyanClient.isChatModuleEnabled && VoidCyanClient.isHarmfulWordFilterEnabled) {
+         String filtered = VoidCyanClient.filterHarmfulPlain(text.getString());
+         if (!filtered.equals(text.getString())) {
+            return Text.literal(filtered);
+         }
+      }
+
       if (NameProtect.INSTANCE.isEnabled() && text != null) {
          Text processed = NameProtect.processText(text);
          if (processed != null) {
@@ -44,6 +59,13 @@ public class MixinInGameHud {
       argsOnly = true
    )
    private Text injectNameProtectSetSubtitle(Text text) {
+      if (text != null && VoidCyanClient.isChatModuleEnabled && VoidCyanClient.isHarmfulWordFilterEnabled) {
+         String filtered = VoidCyanClient.filterHarmfulPlain(text.getString());
+         if (!filtered.equals(text.getString())) {
+            return Text.literal(filtered);
+         }
+      }
+
       if (NameProtect.INSTANCE.isEnabled() && text != null) {
          Text processed = NameProtect.processText(text);
          if (processed != null) {
@@ -60,6 +82,13 @@ public class MixinInGameHud {
       argsOnly = true
    )
    private Text injectNameProtectSetOverlayMessage(Text text) {
+      if (text != null && VoidCyanClient.isChatModuleEnabled && VoidCyanClient.isHarmfulWordFilterEnabled) {
+         String filtered = VoidCyanClient.filterHarmfulPlain(text.getString());
+         if (!filtered.equals(text.getString())) {
+            return Text.literal(filtered);
+         }
+      }
+
       if (NameProtect.INSTANCE.isEnabled() && text != null) {
          Text processed = NameProtect.processText(text);
          if (processed != null) {
@@ -90,7 +119,41 @@ public class MixinInGameHud {
          }
       }
 
+      if (VoidCyanClient.isScoreboardEnabled && color == -1) {
+         color = VoidCyanClient.scoreboardColor;
+      }
+
+      VoidCyanClient.sbCurMinX = Math.min(VoidCyanClient.sbCurMinX, x);
+      VoidCyanClient.sbCurMinY = Math.min(VoidCyanClient.sbCurMinY, y);
+      VoidCyanClient.sbCurMaxX = Math.max(VoidCyanClient.sbCurMaxX, x + textRenderer.getWidth(text));
+      VoidCyanClient.sbCurMaxY = Math.max(VoidCyanClient.sbCurMaxY, y + 9);
       instance.drawText(textRenderer, text, x, y, color, shadow);
+   }
+
+   @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/scoreboard/ScoreboardObjective;)V", at = @At("HEAD"))
+   private void onScoreboardHead(DrawContext context, ScoreboardObjective objective, CallbackInfo ci) {
+      VoidCyanClient.sbCurMinX = Integer.MAX_VALUE;
+      VoidCyanClient.sbCurMinY = Integer.MAX_VALUE;
+      VoidCyanClient.sbCurMaxX = Integer.MIN_VALUE;
+      VoidCyanClient.sbCurMaxY = Integer.MIN_VALUE;
+      if (VoidCyanClient.isScoreboardEnabled) {
+         context.getMatrices().pushMatrix();
+         context.getMatrices().translate(VoidCyanClient.scoreboardOffsetX, VoidCyanClient.scoreboardOffsetY);
+      }
+   }
+
+   @Inject(method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/scoreboard/ScoreboardObjective;)V", at = @At("RETURN"))
+   private void onScoreboardReturn(DrawContext context, ScoreboardObjective objective, CallbackInfo ci) {
+      if (VoidCyanClient.sbCurMaxX > VoidCyanClient.sbCurMinX) {
+         VoidCyanClient.sbMinX = VoidCyanClient.sbCurMinX - 2;
+         VoidCyanClient.sbMinY = VoidCyanClient.sbCurMinY - 1;
+         VoidCyanClient.sbMaxX = VoidCyanClient.sbCurMaxX + 2;
+         VoidCyanClient.sbMaxY = VoidCyanClient.sbCurMaxY + 1;
+         VoidCyanClient.sbKnown = true;
+      }
+      if (VoidCyanClient.isScoreboardEnabled) {
+         context.getMatrices().popMatrix();
+      }
    }
 
    @Inject(
@@ -98,6 +161,7 @@ public class MixinInGameHud {
       at = {@At("RETURN")}
    )
    private void onRender(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+      com.voidcyan.client.CritEffectsManager.renderOverlay(context);
       MinecraftClient client = MinecraftClient.getInstance();
       if (!client.getDebugHud().shouldShowDebugHud() && !client.options.hudHidden) {
          TextRenderer textRenderer = client.textRenderer;
@@ -153,6 +217,30 @@ public class MixinInGameHud {
             }
          }
       }
+   }
+
+   @Inject(
+      method = "renderOverlayMessage",
+      at = @At("HEAD"),
+      cancellable = true
+   )
+   private void onRenderOverlayMessage(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+      if (!VoidCyanClient.isActionBarEnabled) return;
+      ci.cancel();
+      if (this.overlayMessage == null || this.overlayRemaining <= 0) return;
+      float f = (float)this.overlayRemaining - tickCounter.getTickProgress(true);
+      int alpha = Math.min(255, (int)(f * 255.0F / 20.0F));
+      if (alpha <= 0) return;
+      TextRenderer tr = MinecraftClient.getInstance().textRenderer;
+      int w = tr.getWidth(this.overlayMessage);
+      VoidCyanClient.applyScale(context, VoidCyanClient.actionBarX, VoidCyanClient.actionBarY, VoidCyanClient.actionBarScale);
+      VoidCyanClient.actionBarWidth = w + 24;
+      if (this.overlayTinted) {
+         context.fill(0, 0, w + 24, 13, alpha / 2 << 24);
+      }
+
+      context.drawTextWithShadow(tr, this.overlayMessage, 12, 3, (alpha << 24) | 16777215);
+      VoidCyanClient.resetScale(context);
    }
 
    @Inject(

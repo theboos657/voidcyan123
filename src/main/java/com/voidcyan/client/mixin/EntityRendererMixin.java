@@ -35,6 +35,27 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
          }
 
          if (originalName != null) {
+            if (VoidCyanClient.isChatModuleEnabled && VoidCyanClient.isHarmfulWordFilterEnabled) {
+               String filtered = VoidCyanClient.filterHarmfulPlain(originalName.getString());
+               if (!filtered.equals(originalName.getString())) {
+                  originalName = Text.literal(filtered);
+                  if (state instanceof PlayerEntityRenderState fps) fps.playerName = originalName;
+                  state.displayName = originalName;
+               }
+            }
+
+            if (VoidCyanClient.isPeerNickEnabled
+               && state instanceof PlayerEntityRenderState peerState
+               && MinecraftClient.getInstance().player != null
+               && peerState.id != MinecraftClient.getInstance().player.getId()) {
+               String nick = VoidCyanClient.peerNickFor(originalName.getString());
+               if (nick != null) {
+                  originalName = Text.literal(nick);
+                  peerState.playerName = originalName;
+                  state.displayName = originalName;
+               }
+            }
+
             if (state instanceof PlayerEntityRenderState playerState) {
                MinecraftClient client = MinecraftClient.getInstance();
                if (client.world != null) {

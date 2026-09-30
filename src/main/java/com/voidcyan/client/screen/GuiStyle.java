@@ -1,8 +1,13 @@
 package com.voidcyan.client.screen;
 
+import com.voidcyan.client.VoidCyanClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 /**
  * Shared visual language for the redesigned VoidCyan click GUI:
@@ -16,28 +21,68 @@ public final class GuiStyle {
 
    public static final int WINDOW_MARGIN = 12;
    public static final int SIDEBAR_W = 150;
-   public static final int WINDOW_RADIUS = 0;
+   public static final int WINDOW_RADIUS = 12;
 
-   /**
-    * Sharp-cornered rectangle. The radius parameter is intentionally ignored:
-    * VoidCyan uses straight edges everywhere (no rounded corners on any shape).
-    */
-   public static void roundedRect(DrawContext context, int x, int y, int width, int height, int radius, int argb) {
-      if (width <= 0 || height <= 0 || ((argb >>> 24) & 0xFF) <= 0) return;
-      context.fill(x, y, x + width, y + height, argb);
+   /** Cool profile: real rounded corners, gradients and pill controls. */
+   public static boolean cool() {
+      return VoidCyanClient.guiType == 1;
    }
 
-   /**
-    * Sharp 1px outline (4 straight edges). The radius parameter is intentionally
-    * ignored — no shape in the GUI has rounded corners anymore.
-    */
+   public static boolean square() {
+      return VoidCyanClient.guiType == 0 && !orbitSkin;
+   }
+
+   /** Square and Cool both draw rounded corners; only the classic Orbit skin stays sharp. */
+   public static boolean rounded() {
+      return VoidCyanClient.guiType <= 1 && !orbitSkin;
+   }
+
+   /** True while the classic window is shown from the Orbit wheel (no sidebar, deep-purple skin). */
+   public static boolean orbitSkin = false;
+
+   /** Pulls dark base colors toward the Orbit purple while that skin is active. */
+   public static int pal(int rgb) {
+      return orbitSkin ? blend(rgb, 0x1E1236, 0.85F) : rgb;
+   }
+
+   private static int inset(int r, int row) {
+      double d = r - row - 0.5;
+      return (int)Math.round(r - Math.sqrt(Math.max(0.0, r * r - d * d)));
+   }
+
+   /** Rectangle; corners are rounded only in the Cool profile. */
+   public static void roundedRect(DrawContext context, int x, int y, int width, int height, int radius, int argb) {
+      if (width <= 0 || height <= 0 || ((argb >>> 24) & 0xFF) <= 0) return;
+      int r = rounded() ? Math.min(radius, Math.min(width, height) / 2) : 0;
+      if (r <= 0) {
+         context.fill(x, y, x + width, y + height, argb);
+         return;
+      }
+      for (int i = 0; i < r; i++) {
+         int in = inset(r, i);
+         context.fill(x + in, y + i, x + width - in, y + i + 1, argb);
+         context.fill(x + in, y + height - 1 - i, x + width - in, y + height - i, argb);
+      }
+      context.fill(x, y + r, x + width, y + height - r, argb);
+   }
+
+   /** 1px outline; rounded only in the Cool profile. */
    public static void roundedOutline(DrawContext context, int x, int y, int width, int height, int radius, int argb) {
       if (width <= 0 || height <= 0 || ((argb >>> 24) & 0xFF) <= 0) return;
-      int color = argb;
-      context.fill(x, y, x + width, y + 1, color);
-      context.fill(x, y + height - 1, x + width, y + height, color);
-      context.fill(x, y + 1, x + 1, y + height - 1, color);
-      context.fill(x + width - 1, y + 1, x + width, y + height - 1, color);
+      int r = rounded() ? Math.min(radius, Math.min(width, height) / 2) : 0;
+      for (int i = 0; i < r; i++) {
+         int in = inset(r, i);
+         int span = Math.max(1, (i + 1 < r ? inset(r, i + 1) : 0) - in);
+         if (i == 0) span = width - in * 2;
+         for (int yy : new int[]{y + i, y + height - 1 - i}) {
+            context.fill(x + in, yy, x + in + span, yy + 1, argb);
+            context.fill(x + width - in - span, yy, x + width - in, yy + 1, argb);
+         }
+      }
+      context.fill(x + r, y, x + width - r, y + 1, argb);
+      context.fill(x + r, y + height - 1, x + width - r, y + height, argb);
+      context.fill(x, y + Math.max(r, 1), x + 1, y + height - Math.max(r, 1), argb);
+      context.fill(x + width - 1, y + Math.max(r, 1), x + width, y + height - Math.max(r, 1), argb);
    }
 
    /** Solid rounded rect with a 1px border of a different color. */
@@ -65,7 +110,6 @@ public final class GuiStyle {
    public static void drawWindow(DrawContext context, int x, int y, int width, int height, int primaryRgb, float openProgress) {
       int a = (int)(openProgress * 255.0F);
       if (a <= 4) return;
-
       // Outer glow: layered rounded rects expanding outwards with fading alpha.
       int[] glowAlphas = new int[]{(int)(a * 0.045F), (int)(a * 0.075F), (int)(a * 0.11F)};
       for (int layer = glowAlphas.length; layer >= 1; layer--) {
@@ -77,8 +121,13 @@ public final class GuiStyle {
       }
 
       // Body: dark base + faint top sheen.
-      int body = (int)(a * 0.93F) << 24 | 0x0C0A12;
+      int body = (int)(a * 0.93F) << 24 | pal(0x0C0A12);
       roundedRect(context, x, y, width, height, WINDOW_RADIUS, body);
+      if (cool() || square()) {
+         int tint = (int)(a * (square() ? 0.10F : 0.16F)) << 24 | (primaryRgb & 0xFFFFFF);
+         context.fillGradient(x + WINDOW_RADIUS, y + 1, x + width - WINDOW_RADIUS, y + height / 3, tint, 0);
+         if (cool()) context.fill(x + WINDOW_RADIUS * 2, y, x + width - WINDOW_RADIUS * 2, y + 2, a << 24 | (primaryRgb & 0xFFFFFF));
+      }
 
       // Hairline window outline, tinted by theme.
       int outline = (int)(a * 0.22F) << 24 | (primaryRgb & 0xFFFFFF);
@@ -91,7 +140,9 @@ public final class GuiStyle {
    public static void drawContentWell(DrawContext context, int x, int y, int width, int height, int primaryRgb, float openProgress) {
       int a = (int)(openProgress * 255.0F);
       if (a <= 4) return;
-      int well = (int)(a * 0.55F) << 24 | 0x120E1A;
+      if (square()) return;
+
+      int well = (int)(a * 0.55F) << 24 | pal(0x120E1A);
       roundedRect(context, x, y, width, height, 10, well);
       int edge = (int)(a * 0.10F) << 24 | (primaryRgb & 0xFFFFFF);
       roundedOutline(context, x, y, width, height, 10, edge);
@@ -129,6 +180,22 @@ public final class GuiStyle {
       int bg;
       int border;
       int fg;
+      if (square()) {
+         if (active) {
+            bg = (int)(a * 0.26F) << 24 | (primaryRgb & 0xFFFFFF);
+            border = (int)(a * 0.85F) << 24 | (primaryRgb & 0xFFFFFF);
+            fg = a << 24 | 0xFFFFFF;
+         } else {
+            bg = (int)(a * (0.10F + hover * 0.08F)) << 24 | 0xFFFFFF;
+            border = (int)(a * (0.10F + hover * 0.14F)) << 24 | 0xFFFFFF;
+            fg = (int)(a * (0.65F + hover * 0.3F)) << 24 | 0xFFFFFF;
+         }
+
+         roundedBordered(context, x, y, w, h, 4, bg, border);
+         text(context, tr, label, x + 11, y + 5, fg);
+         return true;
+      }
+
       if (active) {
          // Active chips fill completely with the theme color; text stays dark but soft, never harsh black.
          bg = a * 95 / 100 << 24 | (primaryRgb & 0xFFFFFF);
@@ -165,13 +232,18 @@ public final class GuiStyle {
 
    // ---- Controls ---------------------------------------------------------------
 
+   private static boolean bright(int rgb) {
+      return ((rgb >> 16 & 255) * 3 + (rgb >> 8 & 255) * 6 + (rgb & 255)) / 10 > 170;
+   }
+
    /** Squared toggle switch: ON = full theme track, light knob on the right; OFF = dark track, knob left. */
    public static void toggleSwitch(DrawContext context, int x, int y, int width, int height, boolean enabled, float anim, int primaryRgb, float alpha) {
       int a = (int)(alpha * 255.0F);
       if (a <= 4) return;
-      int radius = 5;
 
-      int track = enabled ? a * 95 / 100 << 24 | (primaryRgb & 0xFFFFFF) : a * 70 / 100 << 24 | 0x2A2533;
+      int radius = square() ? 4 : cool() ? height / 2 : 5;
+
+      int track = enabled ? a * 95 / 100 << 24 | (primaryRgb & 0xFFFFFF) : square() ? a << 24 | 0x232630 : rounded() ? a << 24 | 0x3A3448 : a * 70 / 100 << 24 | 0x2A2533;
       roundedRect(context, x, y, width, height, radius, track);
 
       int knobD = height - 4;
@@ -180,8 +252,7 @@ public final class GuiStyle {
       float t = Math.max(0.0F, Math.min(1.0F, anim));
       int knobX = (int)(knobMinX + (knobMaxX - knobMinX) * t);
       // Light knob is clearly visible on both the dark OFF track and the theme-colored ON track.
-      roundedRect(context, knobX, y + 2, knobD, knobD, 3, a << 24 | 0xF5F2F8);
-      roundedOutline(context, knobX, y + 2, knobD, knobD, 3, a * 30 / 100 << 24);
+      roundedRect(context, knobX, y + 2, knobD, knobD, cool() ? knobD / 2 : 3, a << 24 | (enabled ? (bright(primaryRgb) ? 0x232733 : 0xF5F2F8) : 0x8E93A3));
    }
 
    /**
@@ -378,6 +449,141 @@ public final class GuiStyle {
             context.fill(ix + half + 1, iy + half + 1, ix + half * 2 + 1, iy + half * 2 + 1, c);
             break;
          }
+      }
+   }
+
+   private static final java.util.Map<String, Identifier> ICONS = new java.util.HashMap<>();
+
+   private static double coverage(NativeImage src, int x, int y) {
+      int c = src.getColorArgb(x, y);
+      double al = (c >>> 24) / 255.0;
+      double lum = (((c >> 16) & 255) + ((c >> 8) & 255) + (c & 255)) / 765.0;
+      return Math.max(0.0, Math.min(1.0, (al * (1.0 - lum) - 0.25) / 0.5));
+   }
+
+   /** Loads an icon image, drops its background, crops to the glyph and downsizes to a white 64px mask (cached). */
+   private static Identifier loadIcon(String key) {
+      if (ICONS.containsKey(key)) return ICONS.get(key);
+      ICONS.put(key, null);
+      try (java.io.InputStream in = GuiStyle.class.getResourceAsStream("/assets/voidcyan/textures/gui/tabicons/" + key + ".png")) {
+         NativeImage src = NativeImage.read(in);
+         int sw = src.getWidth();
+         int sh = src.getHeight();
+         double[] col = new double[sw];
+         double[] row = new double[sh];
+         double maxCol = 0.0, maxRow = 0.0;
+         for (int y = 0; y < sh; y++) {
+            for (int x = 0; x < sw; x++) {
+               double cv = coverage(src, x, y);
+               col[x] += cv;
+               row[y] += cv;
+            }
+         }
+
+         for (double v : col) maxCol = Math.max(maxCol, v);
+         for (double v : row) maxRow = Math.max(maxRow, v);
+         int minX = sw, minY = sh, maxX = -1, maxY = -1;
+         // Ignore stray specks / watermark captions: only rows and columns with real ink count.
+         for (int x = 0; x < sw; x++) {
+            if (col[x] >= Math.max(2.0, maxCol * 0.12)) {
+               minX = Math.min(minX, x);
+               maxX = Math.max(maxX, x);
+            }
+         }
+
+         for (int y = 0; y < sh; y++) {
+            if (row[y] >= Math.max(2.0, maxRow * 0.12)) {
+               minY = Math.min(minY, y);
+               maxY = Math.max(maxY, y);
+            }
+         }
+
+         if (maxX < 0 || maxY < 0) {
+            minX = 0;
+            minY = 0;
+            maxX = sw - 1;
+            maxY = sh - 1;
+         }
+
+         int bw = maxX - minX + 1;
+         int bh = maxY - minY + 1;
+         int side = Math.max(bw, bh);
+         int offX = minX - (side - bw) / 2;
+         int offY = minY - (side - bh) / 2;
+         int n = 64;
+         NativeImage dst = new NativeImage(n, n, true);
+         for (int py = 0; py < n; py++) {
+            for (int px = 0; px < n; px++) {
+               int x0 = offX + px * side / n;
+               int x1 = Math.max(x0 + 1, offX + (px + 1) * side / n);
+               int y0 = offY + py * side / n;
+               int y1 = Math.max(y0 + 1, offY + (py + 1) * side / n);
+               double sum = 0.0;
+               int cnt = 0;
+               for (int yy = y0; yy < y1; yy++) {
+                  for (int xx = x0; xx < x1; xx++) {
+                     cnt++;
+                     if (xx >= 0 && yy >= 0 && xx < sw && yy < sh) sum += coverage(src, xx, yy);
+                  }
+               }
+
+               dst.setColorArgb(px, py, (int)(sum / cnt * 255.0) << 24 | 0xFFFFFF);
+            }
+         }
+
+         src.close();
+         Identifier id = Identifier.of("voidcyan", "icon_" + key);
+         net.minecraft.client.MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(null, dst));
+         ICONS.put(key, id);
+      } catch (Exception e) {
+         e.printStackTrace();
+      }
+
+      return ICONS.get(key);
+   }
+
+   private static boolean drawIcon(DrawContext context, String key, int x, int y, int size, int argb) {
+      Identifier id = loadIcon(key);
+      if (id == null) return false;
+      context.drawTexture(RenderPipelines.GUI_TEXTURED, id, x, y, 0.0F, 0.0F, size, size, 64, 64, 64, 64, argb);
+      return true;
+   }
+
+   /** Draws a user-supplied tab icon (white mask tinted by argb). Returns false when the tab has none. */
+   public static boolean tabIcon(DrawContext context, int tab, int x, int y, int size, int argb) {
+      return tab >= 1 && tab <= 7 && drawIcon(context, "tab" + tab, x, y, size, argb);
+   }
+
+   /** Small icons for the Square sidebar category rows. */
+   public static void categoryIcon(DrawContext context, int index, int x, int y, int size, int argb) {
+      if (drawIcon(context, "cat" + index, x, y, size, argb)) return;
+      switch (index) {
+         case 1 -> {
+            for (int i = 0; i < size; i++) {
+               context.fill(x + i, y + i, x + i + 2, y + i + 1, argb);
+               context.fill(x + size - 2 - i, y + i, x + size - i, y + i + 1, argb);
+            }
+
+            context.fill(x, y + size - 3, x + 4, y + size - 2, argb);
+            context.fill(x + size - 4, y + size - 3, x + size, y + size - 2, argb);
+         }
+         case 2 -> {
+            roundedOutline(context, x + 1, y + 2, size - 2, size - 3, 2, argb);
+            context.fill(x + 1, y + 5, x + size - 1, y + 6, argb);
+            context.fill(x + size / 2 - 1, y + 2, x + size / 2 + 1, y + 6, argb);
+         }
+         case 3 -> {
+            roundedOutline(context, x, y, size, size, size / 2, argb);
+            context.fill(x + size / 2, y + 1, x + size / 2 + 1, y + size - 1, argb);
+            context.fill(x + 1, y + size / 2, x + size - 1, y + size / 2 + 1, argb);
+         }
+         case 4 -> {
+            roundedOutline(context, x, y + 1, size, size - 4, 2, argb);
+            context.fill(x + size / 2 - 3, y + size - 2, x + size / 2 + 3, y + size - 1, argb);
+            context.fill(x + 3, y + 4, x + size - 3, y + 5, argb);
+         }
+         case 5 -> sidebarIcon(context, 4, x, y, size, argb);
+         default -> sidebarIcon(context, 0, x, y, size, argb);
       }
    }
 

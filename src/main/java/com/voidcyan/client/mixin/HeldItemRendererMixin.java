@@ -44,6 +44,7 @@ public class HeldItemRendererMixin {
       int light,
       CallbackInfo ci
    ) {
+      com.voidcyan.client.FeatureModules.applyBlockHit(player, hand, item, matrices);
       boolean isMainHand = hand == Hand.MAIN_HAND;
       boolean vmEnabled = isMainHand ? VoidCyanClient.isMainHandViewModelEnabled : VoidCyanClient.isOffHandViewModelEnabled;
       if (vmEnabled) {

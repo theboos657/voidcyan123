@@ -15,7 +15,15 @@ public class ZoomSettingsScreen extends BaseSettingsScreen {
 
    @Override
    protected void buildSettings() {
-      this.addSlider("Starter Zoom Level", 1.0F, 50.0F, () -> (float)VoidCyanClient.zoomLevel, val -> {
+      this.addBoolean("Show Zoom Amount (x)", () -> com.voidcyan.client.FeatureModules.zoomIndicator, val -> {
+         com.voidcyan.client.FeatureModules.zoomIndicator = val;
+         VoidCyanClient.markConfigDirty();
+      });
+      this.addBoolean("Auto Zoom-in Ramp (up to 1000x in 30s)", () -> com.voidcyan.client.FeatureModules.zoomRamp, val -> {
+         com.voidcyan.client.FeatureModules.zoomRamp = val;
+         VoidCyanClient.markConfigDirty();
+      });
+      this.addSlider("Starter Zoom Level", 2.0F, 100.0F, () -> (float)VoidCyanClient.zoomLevel, val -> {
          VoidCyanClient.zoomLevel = val.floatValue();
          VoidCyanClient.markConfigDirty();
       });

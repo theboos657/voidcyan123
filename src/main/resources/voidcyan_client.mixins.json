@@ -12,6 +12,7 @@
     "StringVisitableMixin",
     "MixinGameRenderer",
     "ChatHudMixin",
+    "HandledScreenMixin",
     "MixinPlayerListHud",
     "FreelookMixin",
     "CameraMixin",
@@ -48,6 +49,7 @@
     "EquipmentRendererMixin"
   ],
   "client": [
+    "TexturePreviewMixin",
     "EntityRendererMixin",
     "EntityRendererStateMixin",
     "OptimizeItemEntityMixin",
@@ -60,7 +62,13 @@
     "MixinDeathScreen",
     "DamageListenerMixin",
     "ClientPlayerInteractionManagerMixin",
-    "PlayerModelRenderMixin"
+    "PlayerModelRenderMixin",
+    "ShieldTransparencyMixin",
+    "SettingsCaptureMixin",
+    "PlayerHeldItemHideMixin",
+    "BossBarHudMixin",
+    "FogRendererMixin",
+    "ScreenBlurMixin"
   ],
   "server": [],
   "injectors": {

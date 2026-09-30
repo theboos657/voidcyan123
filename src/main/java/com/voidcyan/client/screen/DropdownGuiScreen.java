@@ -36,6 +36,23 @@ public class DropdownGuiScreen extends Screen {
    private float[] rowAnims = new float[0];
    private final float[] tabHoverProgress = new float[TABS.length];
 
+   /** Module groups (by category name, without the GUI-settings group) for the Orbit profile; parent screens of their settings pages route back to the active main GUI. */
+   public static java.util.Map<String, List<DropdownGuiScreen.Module>> orbitCategories() {
+      DropdownGuiScreen router = new DropdownGuiScreen() {
+         @Override
+         protected void init() {
+            VoidCyanClient.openMainGui(this.client, null);
+         }
+      };
+      router.initTabs();
+      java.util.Map<String, List<DropdownGuiScreen.Module>> out = new java.util.LinkedHashMap<>();
+      for (DropdownGuiScreen.Category cat : tabWindows.getOrDefault(0, new ArrayList<>())) {
+         if (!cat.name.equals("Settings")) out.put(cat.name, cat.modules);
+      }
+
+      return out;
+   }
+
    private List<DropdownGuiScreen.Category> getActiveCategories() {
       return tabWindows.getOrDefault(activeTab, new ArrayList<>());
    }
@@ -156,6 +173,60 @@ public class DropdownGuiScreen extends Screen {
       hud.modules
          .add(
             new DropdownGuiScreen.Module(
+               "Keyboard Sounds",
+               () -> VoidCyanClient.isKeyboardSoundsEnabled = !VoidCyanClient.isKeyboardSoundsEnabled,
+               () -> VoidCyanClient.isKeyboardSoundsEnabled,
+               () -> c.setScreen(new KeyboardSoundsSettingsScreen(this))
+            )
+         );
+      hud.modules
+         .add(
+            new DropdownGuiScreen.Module(
+               "Scoreboard",
+               () -> VoidCyanClient.isScoreboardEnabled = !VoidCyanClient.isScoreboardEnabled,
+               () -> VoidCyanClient.isScoreboardEnabled,
+               () -> c.setScreen(new ScoreboardSettingsScreen(this))
+            )
+         );
+      hud.modules
+         .add(
+            new DropdownGuiScreen.Module(
+               "Shulker Preview",
+               () -> VoidCyanClient.isShulkerPreviewEnabled = !VoidCyanClient.isShulkerPreviewEnabled,
+               () -> VoidCyanClient.isShulkerPreviewEnabled,
+               () -> c.setScreen(new ShulkerPreviewSettingsScreen(this))
+            )
+         );
+      hud.modules
+         .add(
+            new DropdownGuiScreen.Module(
+               "Chat",
+               () -> VoidCyanClient.isChatModuleEnabled = !VoidCyanClient.isChatModuleEnabled,
+               () -> VoidCyanClient.isChatModuleEnabled,
+               () -> c.setScreen(new ChatSettingsScreen(this))
+            )
+         );
+      hud.modules
+         .add(
+            new DropdownGuiScreen.Module(
+               "Persistent Chat",
+               () -> VoidCyanClient.isChatPersistEnabled = !VoidCyanClient.isChatPersistEnabled,
+               () -> VoidCyanClient.isChatPersistEnabled,
+               null
+            )
+         );
+      hud.modules
+         .add(
+            new DropdownGuiScreen.Module(
+               "Action Bar",
+               () -> VoidCyanClient.isActionBarEnabled = !VoidCyanClient.isActionBarEnabled,
+               () -> VoidCyanClient.isActionBarEnabled,
+               () -> c.setScreen(new ActionBarSettingsScreen(this))
+            )
+         );
+      hud.modules
+         .add(
+            new DropdownGuiScreen.Module(
                "Speed Display",
                () -> VoidCyanClient.isSpeedDisplayEnabled = !VoidCyanClient.isSpeedDisplayEnabled,
                () -> VoidCyanClient.isSpeedDisplayEnabled,
@@ -183,7 +254,7 @@ public class DropdownGuiScreen extends Screen {
       hud.modules
          .add(
             new DropdownGuiScreen.Module(
-               "Inv HUD",
+               "Inventory",
                () -> VoidCyanClient.isInvHudEnabled = !VoidCyanClient.isInvHudEnabled,
                () -> VoidCyanClient.isInvHudEnabled,
                () -> c.setScreen(new InvHudSettingsScreen(this))
@@ -545,9 +616,7 @@ public class DropdownGuiScreen extends Screen {
       // resize the GUI live, without waiting for a window-resize init pass.
       this.width = GuiScaleManager.logicalWidth(this.client);
       this.height = GuiScaleManager.logicalHeight(this.client);
-      // Vanilla screen coords already have the game GUI Scale baked in; only the
-      // dedicated Click GUI multiplier remains as the render transform.
-      float scaleRatio = GuiScaleManager.multiplier();
+      float scaleRatio = GuiScaleManager.renderScale();
       context.getMatrices().pushMatrix();
       context.getMatrices().scale(scaleRatio, scaleRatio);
       long now = System.currentTimeMillis();
@@ -1211,7 +1280,7 @@ public class DropdownGuiScreen extends Screen {
          int typeY = guiScaleY + 30;
          boolean typeHovered = mouseX >= x + 12 && mouseX <= x + 12 + 250 && mouseY >= typeY && mouseY <= typeY + 16;
          ctx.fill(x + 12, typeY, x + 12 + 250, typeY + 16, typeHovered ? -13421773 : -14540254);
-         String typeLabel = "GUI Type: " + (VoidCyanClient.guiType == 0 ? "Square" : "Dropdown");
+         String typeLabel = "GUI Type: " + (new String[]{"Square", "Cool", "Orbit"}[VoidCyanClient.guiType]);
          ctx.drawTextWithShadow(c.textRenderer, Text.literal(typeLabel), x + 16, typeY + 4, -1);
          int safeY = typeY + 26;
          boolean safeHovered = mouseX >= x + 12 && mouseX <= x + 12 + 250 && mouseY >= safeY && mouseY <= safeY + 16;
@@ -1390,11 +1459,9 @@ public class DropdownGuiScreen extends Screen {
 
          int typeY = guiScaleY + 30;
          if (mx >= x + 12 && mx <= x + 12 + 250 && my >= typeY && my <= typeY + 16) {
-            VoidCyanClient.guiType = VoidCyanClient.guiType == 0 ? 1 : 0;
+            VoidCyanClient.guiType = (VoidCyanClient.guiType + 1) % 3;
             VoidCyanClient.saveConfig();
-            if (VoidCyanClient.guiType == 0) {
-               MinecraftClient.getInstance().setScreen(new ClickGuiScreen(null));
-            }
+            VoidCyanClient.openMainGui(MinecraftClient.getInstance(), null);
 
             return true;
          }

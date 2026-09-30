@@ -329,7 +329,8 @@ public final class DeathInfoManager {
             100,
             true,
             true,
-            "minecraft:skeleton_skull"
+            "minecraft:skeleton_skull",
+            0
          );
          waypointFeedback = "Waypoint added!";
          waypointFeedbackUntil = System.currentTimeMillis() + 2500L;

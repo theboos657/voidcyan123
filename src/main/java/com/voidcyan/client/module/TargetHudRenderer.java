@@ -232,7 +232,7 @@ public class TargetHudRenderer {
                float maxHealth = target.getMaxHealth();
                String healthText = String.format("Health: %.1f / %.1f", health, maxHealth);
                context.drawTextWithShadow(client.textRenderer, healthText, x + textOffsetX, y + 15, healthColor);
-               float myScore = client.player.getHealth() + client.player.getArmor() * 2;
+               float myScore = client.player.getHealth() + client.player.getArmor() * 4;
                int myGapples = 0;
 
                for (int i = 0; i < client.player.getInventory().size(); i++) {
@@ -242,8 +242,8 @@ public class TargetHudRenderer {
                   }
                }
 
-               myScore += myGapples * 2;
-               float targetScore = target.getHealth() + target.getArmor() * 2;
+               myScore += myGapples * 4;
+               float targetScore = target.getHealth() + target.getArmor() * 4;
                int targetGapples = 0;
                ItemStack mainHand = target.getMainHandStack();
                if (mainHand.getItem() == Items.GOLDEN_APPLE || mainHand.getItem() == Items.ENCHANTED_GOLDEN_APPLE) {
@@ -255,7 +255,7 @@ public class TargetHudRenderer {
                   targetGapples += offHand.getCount();
                }
 
-               targetScore += targetGapples * 2;
+               targetScore += targetGapples * 4;
                float winChance = 50.0F;
                if (myScore + targetScore > 0.0F) {
                   winChance = myScore / (myScore + targetScore) * 100.0F;

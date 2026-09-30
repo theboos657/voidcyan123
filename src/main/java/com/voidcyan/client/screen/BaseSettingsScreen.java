@@ -10,6 +10,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
@@ -21,6 +22,7 @@ public abstract class BaseSettingsScreen extends Screen {
    private final List<BaseSettingsScreen.SettingEntry<?>> entries = new ArrayList<>();
    private int draggingIndex = -1;
    private BaseSettingsScreen.SettingEntry<?> listeningKeybind = null;
+   private ColorPickerModal colorModal = null;
    private float scrollOffset = 0.0F;
    private float scrollTarget = 0.0F;
 
@@ -74,6 +76,70 @@ public abstract class BaseSettingsScreen extends Screen {
 
    protected void addMultiSelect(String label, String[] opts, Supplier<boolean[]> get, Consumer<boolean[]> set) {
       this.entries.add(new BaseSettingsScreen.MultiSelectEntry(label, opts, get, set));
+   }
+
+   protected void addColorPicker(String label, Supplier<Integer> get, Consumer<Integer> set) {
+      this.entries.add(new BaseSettingsScreen.ColorEntry(label, get, set));
+   }
+
+   /** While true, MinecraftClient.setScreen hands a BaseSettingsScreen to {@link #captured} instead of opening it (used by the inline dropdown). */
+   public static boolean captureActive = false;
+   public static BaseSettingsScreen captured = null;
+
+   public int inlineHeight() {
+      return this.entries.stream().mapToInt(e -> e.entryHeight()).sum();
+   }
+
+   public void renderInline(DrawContext ctx, int x, int y, int w, int mx, int my) {
+      int accent = VoidCyanClient.getPrimaryColor();
+      int ry = y;
+      for (BaseSettingsScreen.SettingEntry<?> entry : this.entries) {
+         int h = entry.entryHeight();
+         entry.render(ctx, x + 10, ry, w - 20, mx, my, accent, mx >= x && mx <= x + w && my >= ry && my <= ry + h);
+         ctx.fill(x + 10, ry + h - 1, x + w - 10, ry + h, 587202559);
+         ry += h;
+      }
+   }
+
+   public boolean clickInline(double mx, double my, int x, int y, int w) {
+      int ry = y;
+      for (int i = 0; i < this.entries.size(); i++) {
+         BaseSettingsScreen.SettingEntry<?> entry = this.entries.get(i);
+         if (entry.click(mx, my, x + 10, ry, w - 20)) {
+            if (entry.isSlider()) this.draggingIndex = i;
+            VoidCyanClient.saveConfig();
+            return true;
+         }
+
+         ry += entry.entryHeight();
+      }
+
+      return false;
+   }
+
+   public boolean isDraggingInline() {
+      return this.draggingIndex >= 0;
+   }
+
+   public void dragInline(double mx, int x, int w) {
+      if (this.draggingIndex >= 0) this.entries.get(this.draggingIndex).drag(mx, x + 10, w - 20);
+   }
+
+   public void releaseInline() {
+      if (this.draggingIndex >= 0) {
+         this.draggingIndex = -1;
+         VoidCyanClient.saveConfig();
+      }
+   }
+
+   public ColorPickerModal takeColorModal() {
+      ColorPickerModal m = this.colorModal;
+      this.colorModal = null;
+      return m;
+   }
+
+   public boolean wantsKeys() {
+      return this.listeningKeybind != null || this.entries.stream().anyMatch(e -> e instanceof BaseSettingsScreen.InputEntry ie && ie.hasFocus);
    }
 
    protected void init() {
@@ -148,9 +214,14 @@ public abstract class BaseSettingsScreen extends Screen {
       context.disableScissor();
       context.drawTextWithShadow(this.textRenderer, Text.literal("ESC  to return"), x + 12, y + ph - 13, -1716868438);
       super.render(context, mouseX, mouseY, deltaTicks);
+      if (this.colorModal != null) {
+         this.colorModal.render(context, mouseX, mouseY, this.width, this.height);
+         if (!this.colorModal.isOpen()) this.colorModal = null;
+      }
    }
 
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+      if (this.colorModal != null) return true;
       int total = this.entries.stream().mapToInt(e -> e.entryHeight()).sum();
       int pw = Math.min(350, this.width - 20);
       int ph = Math.min(this.height - 40, 34 + total + 18);
@@ -161,6 +232,16 @@ public abstract class BaseSettingsScreen extends Screen {
    }
 
    public boolean mouseClicked(Click click, boolean doubled) {
+      if (this.colorModal != null) {
+         boolean consumed = this.colorModal.mouseClicked(click);
+         if (!this.colorModal.isOpen()) {
+            this.colorModal = null;
+            VoidCyanClient.saveConfig();
+         }
+
+         return consumed;
+      }
+
       if (click.button() != 0) {
          return super.mouseClicked(click, doubled);
       } else {
@@ -229,6 +310,10 @@ public abstract class BaseSettingsScreen extends Screen {
    }
 
    public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+      if (this.colorModal != null) {
+         return this.colorModal.mouseDragged(click);
+      }
+
       if (this.draggingIndex < 0) {
          return super.mouseDragged(click, offsetX, offsetY);
       } else {
@@ -249,6 +334,16 @@ public abstract class BaseSettingsScreen extends Screen {
    }
 
    public boolean mouseReleased(Click click) {
+      if (this.colorModal != null) {
+         this.colorModal.mouseReleased();
+         if (!this.colorModal.isOpen()) {
+            this.colorModal = null;
+            VoidCyanClient.saveConfig();
+         }
+
+         return true;
+      }
+
       if (this.draggingIndex >= 0) {
          this.draggingIndex = -1;
          VoidCyanClient.saveConfig();
@@ -259,6 +354,21 @@ public abstract class BaseSettingsScreen extends Screen {
    }
 
    public boolean keyPressed(KeyInput input) {
+      if (this.colorModal != null) {
+         boolean consumed = this.colorModal.keyPressed(input);
+         if (!consumed && input.key() == 256) {
+            this.colorModal = null;
+            return true;
+         }
+
+         if (!this.colorModal.isOpen()) {
+            this.colorModal = null;
+            VoidCyanClient.saveConfig();
+         }
+
+         return consumed;
+      }
+
       for (int i = 0; i < this.entries.size(); i++) {
          if (this.entries.get(i) instanceof BaseSettingsScreen.InputEntry) {
             BaseSettingsScreen.InputEntry entry = (BaseSettingsScreen.InputEntry)this.entries.get(i);
@@ -313,6 +423,13 @@ public abstract class BaseSettingsScreen extends Screen {
 
                   String val = entry.get.get();
                   entry.set.accept(val + chr);
+                  VoidCyanClient.saveConfig();
+                  return true;
+               }
+
+               if (key == 61) {
+                  String val = entry.get.get();
+                  entry.set.accept(val + "=");
                   VoidCyanClient.saveConfig();
                   return true;
                }
@@ -380,10 +497,57 @@ public abstract class BaseSettingsScreen extends Screen {
       }
    }
 
+   public boolean charTyped(CharInput input) {
+      return this.colorModal != null && this.colorModal.charTyped(input);
+   }
+
    public void close() {
       VoidCyanClient.saveConfig();
       if (this.client != null) {
          this.client.setScreen(this.parent);
+      }
+   }
+
+   private class ColorEntry extends BaseSettingsScreen.SettingEntry<Integer> {
+      ColorEntry(String l, Supplier<Integer> g, Consumer<Integer> s) {
+         super(l, g, s);
+      }
+
+      @Override
+      void render(DrawContext ctx, int x, int y, int w, int mx, int my, int cy, boolean hovered) {
+         if (hovered) {
+            ctx.fill(x - 10, y, x + w + 10, y + 36, 301989887);
+         }
+
+         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
+         ctx.drawTextWithShadow(tr, Text.literal(this.label), x, y + 13 + 1, -2236963);
+         int bw = 40;
+         int bh = 18;
+         int bx = x + w - bw;
+         int by = y + 9;
+         ctx.fill(bx, by, bx + bw, by + bh, 0xFF000000 | this.get.get() & 16777215);
+         ctx.fill(bx, by, bx + bw, by + 1, cy);
+         ctx.fill(bx, by + bh - 1, bx + bw, by + bh, cy);
+         ctx.fill(bx, by, bx + 1, by + bh, cy);
+         ctx.fill(bx + bw - 1, by, bx + bw, by + bh, cy);
+      }
+
+      @Override
+      boolean click(double mx, double my, int x, int y, int w) {
+         int bw = 40;
+         int bh = 18;
+         int bx = x + w - bw;
+         int by = y + 9;
+         if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+            BaseSettingsScreen.this.colorModal = new ColorPickerModal(
+               BaseSettingsScreen.this.width / 2, BaseSettingsScreen.this.height / 2,
+               0xFF000000 | this.get.get() & 16777215, this.label, BaseSettingsScreen.this.titleStr,
+               argb -> this.set.accept(argb & 16777215)
+            );
+            return true;
+         }
+
+         return false;
       }
    }
 

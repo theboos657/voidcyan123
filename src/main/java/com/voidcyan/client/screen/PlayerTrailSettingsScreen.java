@@ -11,10 +11,12 @@ public class PlayerTrailSettingsScreen extends BaseSettingsScreen {
    @Override
    protected void buildSettings() {
       this.addIntSlider("Anchor", 0, 100, () -> VoidCyanClient.playerTrailAnchor, val -> VoidCyanClient.playerTrailAnchor = val);
-      this.addIntSlider("Color", 0, 100, () -> VoidCyanClient.playerTrailColor, val -> VoidCyanClient.playerTrailColor = val);
-      this.addIntSlider("Color B", 0, 100, () -> VoidCyanClient.playerTrailColorB, val -> VoidCyanClient.playerTrailColorB = val);
-      this.addIntSlider("Color G", 0, 100, () -> VoidCyanClient.playerTrailColorG, val -> VoidCyanClient.playerTrailColorG = val);
-      this.addIntSlider("Color R", 0, 100, () -> VoidCyanClient.playerTrailColorR, val -> VoidCyanClient.playerTrailColorR = val);
+      this.addColorPicker("Color", () -> VoidCyanClient.playerTrailColor, rgb -> {
+         VoidCyanClient.playerTrailColor = rgb;
+         VoidCyanClient.playerTrailColorR = rgb >> 16 & 255;
+         VoidCyanClient.playerTrailColorG = rgb >> 8 & 255;
+         VoidCyanClient.playerTrailColorB = rgb & 255;
+      });
       this.addSlider("Duration", 0.5F, 30.0F, () -> VoidCyanClient.playerTrailDuration, val -> VoidCyanClient.playerTrailDuration = val);
       this.addBoolean("Show Others", () -> VoidCyanClient.playerTrailShowOthers, val -> VoidCyanClient.playerTrailShowOthers = val);
       this.addBoolean("Show Self", () -> VoidCyanClient.playerTrailShowSelf, val -> VoidCyanClient.playerTrailShowSelf = val);

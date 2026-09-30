@@ -66,6 +66,10 @@ public class NameReplacer {
       return name.equalsIgnoreCase(targetName);
    }
 
+   public static Text replaceName(Text text, String target, String replacement) {
+      return target.isEmpty() ? text : rebuildText(text, target, replacement);
+   }
+
    public static Text replaceInText(Text text) {
       if (!VoidCyanClient.isNickHiderEnabled || text == null) {
          return text;

@@ -26,23 +26,22 @@ import com.voidcyan.client.module.PotionStatusRenderer;
 import com.voidcyan.client.module.ServerInfoManager;
 import com.voidcyan.client.module.StopwatchManager;
 import com.voidcyan.client.module.StreakManager;
-import com.voidcyan.client.module.SystemResourcesManager;
 import com.voidcyan.client.module.TargetHudRenderer;
 import com.voidcyan.client.module.TextHudRenderer;
 import com.voidcyan.client.module.TntTimerRenderer;
 import com.voidcyan.client.module.TotemTraceManager;
-import com.voidcyan.client.module.TransparentShieldRenderer;
 import com.voidcyan.client.module.NameTagItemsRenderer;
 import com.voidcyan.client.module.WatermarkManager;
 import com.voidcyan.client.module.WaypointRenderer;
 import com.voidcyan.client.module.damagehearts.DamageHeartsModule;
 import com.voidcyan.client.module.damagehearts.HeartRenderer;
-import com.voidcyan.client.module.soupvisuals.AttackIndicator;
+import com.voidcyan.client.module.indicator.AttackIndicator;
 import com.voidcyan.client.screen.AnimatedTexture;
 import com.voidcyan.client.screen.ClickGuiScreen;
 import com.voidcyan.client.screen.DropdownGuiScreen;
 import com.voidcyan.client.screen.EditHudScreen;
 import com.voidcyan.client.social.FriendManager;
+import com.voidcyan.client.util.AlarmSoundManager;
 import com.voidcyan.client.util.NameProtect;
 import com.voidcyan.client.util.NameProtectMappings;
 import com.voidcyan.client.util.NoteManager;
@@ -74,6 +73,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import net.fabricmc.api.ClientModInitializer;
@@ -90,6 +90,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.Disconnect;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.Join;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import com.voidcyan.client.module.ChatBubbleRenderer;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents.AfterEntities;
 import net.minecraft.client.MinecraftClient;
@@ -139,7 +140,10 @@ import org.lwjgl.glfw.GLFW;
 public class VoidCyanClient implements ClientModInitializer {
    public static Map<String, Integer> moduleKeybinds = new HashMap<>();
    private static Map<String, Boolean> moduleKeybindsWasPressed = new HashMap<>();
-   public static Identifier customPreviewTexture = null;
+   // Texture Studio live preview: render-state instance -> canvas texture. Weak keys so
+   // states drop out once the deferred GUI entity pass has drawn them.
+   public static final Map<Object, Identifier> previewBaseTextures = new java.util.WeakHashMap<>();
+   public static final Map<Object, Identifier> previewArmorTextures = new java.util.WeakHashMap<>();
    private static boolean guiKeyWasDown = false;
    private static boolean dropdownGuiKeyWasDown = false;
    public static int guiProfile = 0;
@@ -290,6 +294,13 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int pingDisplayX = 10;
    public static int pingDisplayY = 280;
    public static float pingDisplayScale = 1.0F;
+   public static boolean isActionBarEnabled = false;
+   public static int actionBarWidth = 120;
+   public static int sbCurMinX, sbCurMinY, sbCurMaxX, sbCurMaxY, sbMinX, sbMinY, sbMaxX, sbMaxY;
+   public static boolean sbKnown = false;
+   public static int actionBarX = 130;
+   public static int actionBarY = 310;
+   public static float actionBarScale = 1.0F;
    public static boolean isServerInfoEnabled = false;
    public static int serverInfoX = 10;
    public static int serverInfoY = 300;
@@ -326,6 +337,18 @@ public class VoidCyanClient implements ClientModInitializer {
    private static int damageColorEntityId = -1;
    private static long damageColorUntil = 0L;
    public static boolean isChatHeadsEnabled = false;
+   public static boolean isShulkerPreviewEnabled = false;
+   public static int shulkerPreviewKey = 340;
+   public static int shulkerPreviewLockKey = 341;
+   public static boolean isChatModuleEnabled = false;
+   public static boolean isChatUnlimitedHistoryEnabled = false;
+   public static boolean isChatRangeFilterEnabled = false;
+   public static int chatRangeFilterDistance = 64;
+   public static boolean isChatBubblesEnabled = false;
+   public static boolean isChatRepeatCompactEnabled = false;
+   public static int chatRepeatCountColor = 11184810;
+   public static boolean isHarmfulWordFilterEnabled = false;
+   public static String harmfulWordsList = "";
    public static boolean isNotificationsEnabled = true;
    public static boolean isAppleSkinEnabled = false;
    public static boolean isNotificationsAnimEnabled = true;
@@ -415,10 +438,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int tpsDisplayX = 10;
    public static int tpsDisplayY = 400;
    public static float tpsDisplayScale = 1.0F;
-   public static boolean isSystemResourcesEnabled = false;
-   public static int systemResourcesX = 10;
-   public static int systemResourcesY = 50;
-   public static float systemResourcesScale = 1.0F;
    public static boolean isStopwatchEnabled = false;
    public static boolean stopwatchRunning = true;
    public static int stopwatchKey = -1;
@@ -584,6 +603,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean potionStatusShowDuration = true;
    public static boolean potionStatusShowAmplifier = true;
    public static int potionStatusIconType = 0;
+   public static int potionStatusStyle = 0;
    public static boolean disableHotbarLooping = false;
    public static boolean isFullbrightEnabled = false;
    public static boolean isBigItemsEnabled = false;
@@ -606,6 +626,17 @@ public class VoidCyanClient implements ClientModInitializer {
    public static float lowHealthAlarmScale = 1.0F;
    public static boolean lowHealthUseThemeColor = false;
    public static String lowHealthAlarmSoundFile = "Default Beep";
+   public static boolean isKeyboardSoundsEnabled = false;
+   public static boolean isChatPersistEnabled = false;
+   public static float playerModelScale = 1.0F;
+   public static boolean playerModelOthers = true;
+   public static boolean playerModelHideArmor = false;
+   public static boolean playerModelHideHeld = true;
+   public static boolean isScoreboardEnabled = false;
+   public static int scoreboardOffsetX = 0;
+   public static int scoreboardOffsetY = 0;
+   public static int scoreboardColor = -1;
+   public static String keyboardSoundsFile = "Default Beep";
    public static boolean isPotWarningEnabled = false;
    public static boolean potWarnLowPots = true;
    public static int potWarnPotThreshold = 3;
@@ -681,6 +712,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean nickHiderUseCustomColor = false;
    public static int nickHiderColor = 16733695;
    public static boolean isPeerNickEnabled = false;
+   public static String peerNicknames = "";
    public static List<String> friends = new ArrayList<>();
    public static boolean isFriendGreenNameTagsEnabled = false;
    public static boolean hideInvisNametags = false;
@@ -697,6 +729,21 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean nameTagItemsOnlyFriends = false;
    public static float nameTagItemsScale = 1.0F;
    public static int invHudBorderThickness = 2;
+   public static boolean invHudShowBorders = false;
+   public static boolean invHudGlow = false;
+   public static boolean armorStatusGlow = false;
+
+   /** Soft outer glow around a bordered HUD box. */
+   public static void drawBorderGlow(DrawContext c, int x, int y, int w, int h, int rgb) {
+      for (int i = 1; i <= 6; i++) {
+         int a = (int) (80.0 * Math.pow(1.0 - i / 7.0, 2.0));
+         int col = a << 24 | rgb & 0xFFFFFF;
+         c.fill(x - i, y - i, x + w + i, y - i + 1, col);
+         c.fill(x - i, y + h + i - 1, x + w + i, y + h + i, col);
+         c.fill(x - i, y - i + 1, x - i + 1, y + h + i - 1, col);
+         c.fill(x + w + i - 1, y - i + 1, x + w + i, y + h + i - 1, col);
+      }
+   }
    public static int invHudBorderColor = -16711681;
    public static boolean invHudShowHotbar = false;
    public static boolean invHudShowItemCount = true;
@@ -741,11 +788,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int mouseStrokesBoxGreen = 255;
    public static int mouseStrokesBoxBlue = 255;
    public static boolean isTransparentShieldEnabled = false;
-   public static int transparentShieldX = 10;
-   public static int transparentShieldY = 25;
-   public static float transparentShieldScale = 1.0F;
-   public static int transparentShieldStatusColor = -2147418368;
-   public static int transparentShieldStatusOutlineColor = -1;
+   public static int transparentShieldOpacity = 40;
    public static boolean isLogoutSpotsEnabled = false;
    public static boolean logoutSpotsDetectDisappears = true;
    public static boolean logoutSpotsLeaveMessages = true;
@@ -757,6 +800,12 @@ public class VoidCyanClient implements ClientModInitializer {
    private static final File NAMED_CONFIG_DIRECTORY = new File("config/voidcyan-client-configs");
    private static int lastKnownPing = 0;
    public static AnimatedTexture mainBackground = null;
+
+   public static void openMainGui(MinecraftClient client, net.minecraft.client.gui.screen.Screen parent) {
+      client.setScreen(
+         guiType == 2 ? new com.voidcyan.client.screen.OrbitGuiScreen() : new ClickGuiScreen(parent)
+      );
+   }
 
    public static int getModuleKey(String moduleName) {
       return moduleKeybinds.getOrDefault(moduleName, -1);
@@ -779,6 +828,7 @@ public class VoidCyanClient implements ClientModInitializer {
    }
 
    public static void toggleModule(String name) {
+      if (FeatureModules.toggle(name)) return;
       switch (name) {
          case "Inv Highlight":
             isInvHighlightEnabled = !isInvHighlightEnabled;
@@ -927,9 +977,6 @@ public class VoidCyanClient implements ClientModInitializer {
          case "Death Info":
             isDeathInfoEnabled = !isDeathInfoEnabled;
             break;
-         case "System Resources":
-            isSystemResourcesEnabled = !isSystemResourcesEnabled;
-            break;
          case "Toggle Sprint":
             isToggleSprintEnabled = !isToggleSprintEnabled;
             break;
@@ -969,6 +1016,19 @@ public class VoidCyanClient implements ClientModInitializer {
          case "Coordinates":
             isCoordinatesEnabled = !isCoordinatesEnabled;
             break;
+         case "Keyboard Sounds":
+            isKeyboardSoundsEnabled = !isKeyboardSoundsEnabled;
+            break;
+         case "Play Keyboard Sound":
+            if (isKeyboardSoundsEnabled) AlarmSoundManager.playAlarm(keyboardSoundsFile);
+            break;
+         case "Copy Coordinates":
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client.player != null) {
+               client.keyboard.setClipboard((int)client.player.getX() + ", " + (int)client.player.getY() + ", " + (int)client.player.getZ());
+            }
+
+            break;
          case "CPS Counter":
             isCpsEnabled = !isCpsEnabled;
             break;
@@ -991,7 +1051,7 @@ public class VoidCyanClient implements ClientModInitializer {
          case "Potion Status":
             isPotionStatusEnabled = !isPotionStatusEnabled;
             break;
-         case "Inv HUD":
+         case "Inventory":
             isInvHudEnabled = !isInvHudEnabled;
       }
    }
@@ -1361,10 +1421,10 @@ public class VoidCyanClient implements ClientModInitializer {
             guiBgOpacity = Integer.parseInt(props.getProperty("guiBgOpacity", "128"));
             guiBackgroundImagePath = props.getProperty("guiBackgroundImagePath", "");
             guiProfile = Integer.parseInt(props.getProperty("guiProfile", "0"));
-            OptimizeManager.optimizeItems = Boolean.parseBoolean(props.getProperty("optimizeItems", "false"));
-            OptimizeManager.optimizeChests = Boolean.parseBoolean(props.getProperty("optimizeChests", "false"));
-            OptimizeManager.optimizeSigns = Boolean.parseBoolean(props.getProperty("optimizeSigns", "false"));
-            OptimizeManager.optimizePlayers = Boolean.parseBoolean(props.getProperty("optimizePlayers", "false"));
+            OptimizeManager.optimizeItems = Boolean.parseBoolean(props.getProperty("optimizeItems", "true"));
+            OptimizeManager.optimizeChests = Boolean.parseBoolean(props.getProperty("optimizeChests", "true"));
+            OptimizeManager.optimizeSigns = Boolean.parseBoolean(props.getProperty("optimizeSigns", "true"));
+            OptimizeManager.optimizePlayers = Boolean.parseBoolean(props.getProperty("optimizePlayers", "true"));
             OptimizeManager.signTextDistance = Math.max(1, Math.min(128, Integer.parseInt(props.getProperty("optimizeSignTextDistance", "48"))));
             CritEffectsManager.enabled = Boolean.parseBoolean(props.getProperty("critEffects", "false"));
             isFpsCounterEnabled = Boolean.parseBoolean(props.getProperty("fpsCounterEnabled", "false"));
@@ -1373,6 +1433,7 @@ public class VoidCyanClient implements ClientModInitializer {
             isKeystrokesEnabled = Boolean.parseBoolean(props.getProperty("keystrokesEnabled", "false"));
             isNickHiderEnabled = Boolean.parseBoolean(props.getProperty("nickHiderEnabled", "false"));
             isPeerNickEnabled = Boolean.parseBoolean(props.getProperty("peerNickEnabled", "false"));
+            peerNicknames = props.getProperty("peerNicknames", "");
             isFriendGreenNameTagsEnabled = Boolean.parseBoolean(props.getProperty("friendGreenNameTagsEnabled", "false"));
             hideInvisNametags = Boolean.parseBoolean(props.getProperty("hideInvisNametags", "false"));
             safeModeEnabled = Boolean.parseBoolean(props.getProperty("safeModeEnabled", "false"));
@@ -1451,7 +1512,7 @@ public class VoidCyanClient implements ClientModInitializer {
 
             guiAnimationDurationMs = Integer.parseInt(props.getProperty("guiAnimationDurationMs", "300"));
             clickGuiScale = Float.parseFloat(props.getProperty("clickGuiScale", "1.0"));
-            guiType = Integer.parseInt(props.getProperty("guiType", "0"));
+            guiType = Math.max(0, Math.min(2, Integer.parseInt(props.getProperty("guiProfile", "0"))));
             isArmorStatusEnabled = Boolean.parseBoolean(props.getProperty("isArmorStatusEnabled", "false"));
             allTimeKills = Integer.parseInt(props.getProperty("allTimeKills", "0"));
             allTimeDeaths = Integer.parseInt(props.getProperty("allTimeDeaths", "0"));
@@ -1601,6 +1662,10 @@ public class VoidCyanClient implements ClientModInitializer {
             pingDisplayX = Integer.parseInt(props.getProperty("pingDisplayX", "10"));
             pingDisplayY = Integer.parseInt(props.getProperty("pingDisplayY", "280"));
             pingDisplayScale = Float.parseFloat(props.getProperty("pingDisplayScale", "1.0"));
+            isActionBarEnabled = Boolean.parseBoolean(props.getProperty("isActionBarEnabled", "false"));
+            actionBarX = Integer.parseInt(props.getProperty("actionBarX", "130"));
+            actionBarY = Integer.parseInt(props.getProperty("actionBarY", "310"));
+            actionBarScale = Float.parseFloat(props.getProperty("actionBarScale", "1.0"));
             isHurtcamEnabled = Boolean.parseBoolean(props.getProperty("isHurtcamEnabled", "true"));
             isPumpkinEnabled = Boolean.parseBoolean(props.getProperty("isPumpkinEnabled", "true"));
             isWaterFogEnabled = Boolean.parseBoolean(props.getProperty("isWaterFogEnabled", "true"));
@@ -1612,6 +1677,18 @@ public class VoidCyanClient implements ClientModInitializer {
             isCriticalParticlesEnabled = Boolean.parseBoolean(props.getProperty("isCriticalParticlesEnabled", "true"));
             isDamageParticlesEnabled = Boolean.parseBoolean(props.getProperty("isDamageParticlesEnabled", "true"));
             isChatHeadsEnabled = Boolean.parseBoolean(props.getProperty("isChatHeadsEnabled", "false"));
+            isShulkerPreviewEnabled = Boolean.parseBoolean(props.getProperty("isShulkerPreviewEnabled", "false"));
+            shulkerPreviewKey = Integer.parseInt(props.getProperty("shulkerPreviewKey", "340"));
+            shulkerPreviewLockKey = Integer.parseInt(props.getProperty("shulkerPreviewLockKey", "341"));
+            isChatModuleEnabled = Boolean.parseBoolean(props.getProperty("isChatModuleEnabled", "false"));
+            isChatUnlimitedHistoryEnabled = Boolean.parseBoolean(props.getProperty("isChatUnlimitedHistoryEnabled", "false"));
+            isChatRangeFilterEnabled = Boolean.parseBoolean(props.getProperty("isChatRangeFilterEnabled", "false"));
+            chatRangeFilterDistance = Integer.parseInt(props.getProperty("chatRangeFilterDistance", "64"));
+            isChatBubblesEnabled = Boolean.parseBoolean(props.getProperty("isChatBubblesEnabled", "false"));
+            isChatRepeatCompactEnabled = Boolean.parseBoolean(props.getProperty("isChatRepeatCompactEnabled", "false"));
+            chatRepeatCountColor = Integer.parseInt(props.getProperty("chatRepeatCountColor", "11184810"));
+            isHarmfulWordFilterEnabled = Boolean.parseBoolean(props.getProperty("isHarmfulWordFilterEnabled", "false"));
+            harmfulWordsList = props.getProperty("harmfulWordsList", "");
             isNotificationsEnabled = Boolean.parseBoolean(props.getProperty("isNotificationsEnabled", "true"));
             isAppleSkinEnabled = Boolean.parseBoolean(props.getProperty("isAppleSkinEnabled", "false"));
             isNotificationsAnimEnabled = Boolean.parseBoolean(props.getProperty("isNotificationsAnimEnabled", "true"));
@@ -1705,10 +1782,6 @@ public class VoidCyanClient implements ClientModInitializer {
             tpsDisplayX = Integer.parseInt(props.getProperty("tpsDisplayX", "10"));
             tpsDisplayY = Integer.parseInt(props.getProperty("tpsDisplayY", "400"));
             tpsDisplayScale = Float.parseFloat(props.getProperty("tpsDisplayScale", "1.0"));
-            isSystemResourcesEnabled = Boolean.parseBoolean(props.getProperty("isSystemResourcesEnabled", "false"));
-            systemResourcesX = Integer.parseInt(props.getProperty("systemResourcesX", "10"));
-            systemResourcesY = Integer.parseInt(props.getProperty("systemResourcesY", "50"));
-            systemResourcesScale = Float.parseFloat(props.getProperty("systemResourcesScale", "1.0"));
             isStopwatchEnabled = Boolean.parseBoolean(props.getProperty("isStopwatchEnabled", "false"));
             stopwatchRunning = Boolean.parseBoolean(props.getProperty("stopwatchRunning", "true"));
             stopwatchKey = Integer.parseInt(props.getProperty("stopwatchKey", "0"));
@@ -1849,6 +1922,8 @@ public class VoidCyanClient implements ClientModInitializer {
             invHudBorderThickness = Integer.parseInt(props.getProperty("invHudBorderThickness", "2"));
             invHudBorderColor = Integer.parseInt(props.getProperty("invHudBorderColor", "16711935"));
             invHudShowHotbar = Boolean.parseBoolean(props.getProperty("invHudShowHotbar", "false"));
+            invHudShowBorders = Boolean.parseBoolean(props.getProperty("invHudShowBorders", "false"));
+            invHudGlow = Boolean.parseBoolean(props.getProperty("invHudGlow", "false"));
             invHudShowItemCount = Boolean.parseBoolean(props.getProperty("invHudShowItemCount", "true"));
             compassX = Integer.parseInt(props.getProperty("compassX", "10"));
             compassY = Integer.parseInt(props.getProperty("compassY", "165"));
@@ -1984,6 +2059,8 @@ public class VoidCyanClient implements ClientModInitializer {
             invHudBorderThickness = Integer.parseInt(props.getProperty("invHudBorderThickness", "2"));
             invHudBorderColor = Integer.parseInt(props.getProperty("invHudBorderColor", "16711935"));
             invHudShowHotbar = Boolean.parseBoolean(props.getProperty("invHudShowHotbar", "false"));
+            invHudShowBorders = Boolean.parseBoolean(props.getProperty("invHudShowBorders", "false"));
+            invHudGlow = Boolean.parseBoolean(props.getProperty("invHudGlow", "false"));
             invHudTransparent = Boolean.parseBoolean(props.getProperty("invHudTransparent", "false"));
             invHudShowItemCount = Boolean.parseBoolean(props.getProperty("invHudShowItemCount", "true"));
             compassX = Integer.parseInt(props.getProperty("compassX", "10"));
@@ -2061,15 +2138,29 @@ public class VoidCyanClient implements ClientModInitializer {
             potionStatusShowDuration = Boolean.parseBoolean(props.getProperty("potionStatusShowDuration", "true"));
             potionStatusShowAmplifier = Boolean.parseBoolean(props.getProperty("potionStatusShowAmplifier", "true"));
             potionStatusIconType = Integer.parseInt(props.getProperty("potionStatusIconType", "0"));
+            potionStatusStyle = Integer.parseInt(props.getProperty("potionStatusStyle", "0"));
             armorStatusWarningThreshold = Integer.parseInt(props.getProperty("armorStatusWarningThreshold", "20"));
             armorStatusWarningSound = Boolean.parseBoolean(props.getProperty("armorStatusWarningSound", "true"));
             armorStatusWarningSoundType = Integer.parseInt(props.getProperty("armorStatusWarningSoundType", "0"));
             armorStatusTransparentBg = Boolean.parseBoolean(props.getProperty("armorStatusTransparentBg", "false"));
+            armorStatusGlow = Boolean.parseBoolean(props.getProperty("armorStatusGlow", "false"));
             armorStatusWarningSoundFile = props.getProperty("armorStatusWarningSoundFile", "Default Beep");
             lowHealthAlarmSoundFile = props.getProperty("lowHealthAlarmSoundFile", "Default Beep");
+            isKeyboardSoundsEnabled = Boolean.parseBoolean(props.getProperty("isKeyboardSoundsEnabled", "false"));
+            isChatPersistEnabled = Boolean.parseBoolean(props.getProperty("isChatPersistEnabled", "false"));
+            playerModelScale = Float.parseFloat(props.getProperty("playerModelScale", "1.0"));
+            playerModelOthers = Boolean.parseBoolean(props.getProperty("playerModelOthers", "true"));
+            playerModelHideArmor = Boolean.parseBoolean(props.getProperty("playerModelHideArmor", "false"));
+            playerModelHideHeld = Boolean.parseBoolean(props.getProperty("playerModelHideHeld", "true"));
+            isScoreboardEnabled = Boolean.parseBoolean(props.getProperty("isScoreboardEnabled", "false"));
+            scoreboardOffsetX = Integer.parseInt(props.getProperty("scoreboardOffsetX", "0"));
+            scoreboardOffsetY = Integer.parseInt(props.getProperty("scoreboardOffsetY", "0"));
+            scoreboardColor = Integer.parseInt(props.getProperty("scoreboardColor", "-1"));
+            keyboardSoundsFile = props.getProperty("keyboardSoundsFile", "Default Beep");
             potWarnSoundFile = props.getProperty("potWarnSoundFile", "Default Beep");
             zoomSmoothAnimation = Boolean.parseBoolean(props.getProperty("zoomSmoothAnimation", "true"));
             zoomAnimationSpeed = Float.parseFloat(props.getProperty("zoomAnimationSpeed", "0.15"));
+            FeatureModules.load(props);
             editGuiKey = Integer.parseInt(props.getProperty("editGuiKey", "93"));
             isBigHeadEnabled = Boolean.parseBoolean(props.getProperty("isBigHeadEnabled", "false"));
             bigHeadSelf = Boolean.parseBoolean(props.getProperty("bigHeadSelf", "true"));
@@ -2100,11 +2191,7 @@ public class VoidCyanClient implements ClientModInitializer {
             mouseStrokesBoxGreen = Integer.parseInt(props.getProperty("mouseStrokesBoxGreen", "255"));
             mouseStrokesBoxBlue = Integer.parseInt(props.getProperty("mouseStrokesBoxBlue", "255"));
             isTransparentShieldEnabled = Boolean.parseBoolean(props.getProperty("isTransparentShieldEnabled", "false"));
-            transparentShieldX = Integer.parseInt(props.getProperty("transparentShieldX", "10"));
-            transparentShieldY = Integer.parseInt(props.getProperty("transparentShieldY", "25"));
-            transparentShieldScale = Float.parseFloat(props.getProperty("transparentShieldScale", "1.0"));
-            transparentShieldStatusColor = Integer.parseInt(props.getProperty("transparentShieldStatusColor", "-16711681"));
-            transparentShieldStatusOutlineColor = Integer.parseInt(props.getProperty("transparentShieldStatusOutlineColor", "-1"));
+            transparentShieldOpacity = Integer.parseInt(props.getProperty("transparentShieldOpacity", "40"));
             isLogoutSpotsEnabled = Boolean.parseBoolean(props.getProperty("isLogoutSpotsEnabled", "false"));
             logoutSpotsDetectDisappears = Boolean.parseBoolean(props.getProperty("logoutSpotsDetectDisappears", "true"));
             logoutSpotsLeaveMessages = Boolean.parseBoolean(props.getProperty("logoutSpotsLeaveMessages", "true"));
@@ -2160,6 +2247,10 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("keystrokesEnabled", String.valueOf(isKeystrokesEnabled));
       props.setProperty("nickHiderEnabled", String.valueOf(isNickHiderEnabled));
       props.setProperty("peerNickEnabled", String.valueOf(isPeerNickEnabled));
+      props.setProperty("peerNicknames", peerNicknames);
+      props.setProperty("invHudShowBorders", String.valueOf(invHudShowBorders));
+      props.setProperty("invHudGlow", String.valueOf(invHudGlow));
+      props.setProperty("armorStatusGlow", String.valueOf(armorStatusGlow));
       props.setProperty("invHudX", String.valueOf(invHudX));
       props.setProperty("invHudY", String.valueOf(invHudY));
       props.setProperty("invHudScale", String.valueOf(invHudScale));
@@ -2268,6 +2359,10 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("pingDisplayX", String.valueOf(pingDisplayX));
       props.setProperty("pingDisplayY", String.valueOf(pingDisplayY));
       props.setProperty("pingDisplayScale", String.valueOf(pingDisplayScale));
+      props.setProperty("isActionBarEnabled", String.valueOf(isActionBarEnabled));
+      props.setProperty("actionBarX", String.valueOf(actionBarX));
+      props.setProperty("actionBarY", String.valueOf(actionBarY));
+      props.setProperty("actionBarScale", String.valueOf(actionBarScale));
       props.setProperty("isHurtcamEnabled", String.valueOf(isHurtcamEnabled));
       props.setProperty("isPumpkinEnabled", String.valueOf(isPumpkinEnabled));
       props.setProperty("isWaterFogEnabled", String.valueOf(isWaterFogEnabled));
@@ -2301,12 +2396,24 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("isCriticalParticlesEnabled", String.valueOf(isCriticalParticlesEnabled));
       props.setProperty("isDamageParticlesEnabled", String.valueOf(isDamageParticlesEnabled));
       props.setProperty("isChatHeadsEnabled", String.valueOf(isChatHeadsEnabled));
+      props.setProperty("isShulkerPreviewEnabled", String.valueOf(isShulkerPreviewEnabled));
+      props.setProperty("shulkerPreviewKey", String.valueOf(shulkerPreviewKey));
+      props.setProperty("shulkerPreviewLockKey", String.valueOf(shulkerPreviewLockKey));
+      props.setProperty("isChatModuleEnabled", String.valueOf(isChatModuleEnabled));
+      props.setProperty("isChatUnlimitedHistoryEnabled", String.valueOf(isChatUnlimitedHistoryEnabled));
+      props.setProperty("isChatRangeFilterEnabled", String.valueOf(isChatRangeFilterEnabled));
+      props.setProperty("chatRangeFilterDistance", String.valueOf(chatRangeFilterDistance));
+      props.setProperty("isChatBubblesEnabled", String.valueOf(isChatBubblesEnabled));
+      props.setProperty("isChatRepeatCompactEnabled", String.valueOf(isChatRepeatCompactEnabled));
+      props.setProperty("chatRepeatCountColor", String.valueOf(chatRepeatCountColor));
+      props.setProperty("isHarmfulWordFilterEnabled", String.valueOf(isHarmfulWordFilterEnabled));
+      props.setProperty("harmfulWordsList", harmfulWordsList);
       props.setProperty("isNotificationsEnabled", String.valueOf(isNotificationsEnabled));
       props.setProperty("isAppleSkinEnabled", String.valueOf(isAppleSkinEnabled));
       props.setProperty("isNotificationsAnimEnabled", String.valueOf(isNotificationsAnimEnabled));
       props.setProperty("guiAnimationDurationMs", String.valueOf(guiAnimationDurationMs));
       props.setProperty("clickGuiScale", String.valueOf(clickGuiScale));
-      props.setProperty("guiType", String.valueOf(guiType));
+      props.setProperty("guiProfile", String.valueOf(guiType));
       props.setProperty("notificationsAnimDirection", String.valueOf(notificationsAnimDirection));
       props.setProperty("notificationsX", String.valueOf(notificationsX));
       props.setProperty("notificationsY", String.valueOf(notificationsY));
@@ -2485,9 +2592,21 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("armorStatusTransparentBg", String.valueOf(armorStatusTransparentBg));
       props.setProperty("armorStatusWarningSoundFile", armorStatusWarningSoundFile);
       props.setProperty("lowHealthAlarmSoundFile", lowHealthAlarmSoundFile);
+      props.setProperty("isKeyboardSoundsEnabled", String.valueOf(isKeyboardSoundsEnabled));
+      props.setProperty("isChatPersistEnabled", String.valueOf(isChatPersistEnabled));
+      props.setProperty("playerModelScale", String.valueOf(playerModelScale));
+      props.setProperty("playerModelOthers", String.valueOf(playerModelOthers));
+      props.setProperty("playerModelHideArmor", String.valueOf(playerModelHideArmor));
+      props.setProperty("playerModelHideHeld", String.valueOf(playerModelHideHeld));
+      props.setProperty("isScoreboardEnabled", String.valueOf(isScoreboardEnabled));
+      props.setProperty("scoreboardOffsetX", String.valueOf(scoreboardOffsetX));
+      props.setProperty("scoreboardOffsetY", String.valueOf(scoreboardOffsetY));
+      props.setProperty("scoreboardColor", String.valueOf(scoreboardColor));
+      props.setProperty("keyboardSoundsFile", keyboardSoundsFile);
       props.setProperty("potWarnSoundFile", potWarnSoundFile);
       props.setProperty("zoomSmoothAnimation", String.valueOf(zoomSmoothAnimation));
       props.setProperty("zoomAnimationSpeed", String.valueOf(zoomAnimationSpeed));
+      FeatureModules.save(props);
       props.setProperty("editGuiKey", String.valueOf(editGuiKey));
       props.setProperty("isTargetHudEnabled", String.valueOf(isTargetHudEnabled));
       props.setProperty("targetHudX", String.valueOf(targetHudX));
@@ -2550,6 +2669,7 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("potionStatusShowDuration", String.valueOf(potionStatusShowDuration));
       props.setProperty("potionStatusShowAmplifier", String.valueOf(potionStatusShowAmplifier));
       props.setProperty("potionStatusIconType", String.valueOf(potionStatusIconType));
+      props.setProperty("potionStatusStyle", String.valueOf(potionStatusStyle));
       props.setProperty("isBlockIndicatorEnabled", String.valueOf(isBlockIndicatorEnabled));
       props.setProperty("blockIndicatorX", String.valueOf(blockIndicatorX));
       props.setProperty("blockIndicatorY", String.valueOf(blockIndicatorY));
@@ -2583,10 +2703,6 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("tpsDisplayX", String.valueOf(tpsDisplayX));
       props.setProperty("tpsDisplayY", String.valueOf(tpsDisplayY));
       props.setProperty("tpsDisplayScale", String.valueOf(tpsDisplayScale));
-      props.setProperty("isSystemResourcesEnabled", String.valueOf(isSystemResourcesEnabled));
-      props.setProperty("systemResourcesX", String.valueOf(systemResourcesX));
-      props.setProperty("systemResourcesY", String.valueOf(systemResourcesY));
-      props.setProperty("systemResourcesScale", String.valueOf(systemResourcesScale));
       props.setProperty("isStopwatchEnabled", String.valueOf(isStopwatchEnabled));
       props.setProperty("stopwatchRunning", String.valueOf(stopwatchRunning));
       props.setProperty("stopwatchKey", String.valueOf(stopwatchKey));
@@ -2681,11 +2797,7 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("mouseStrokesBoxGreen", String.valueOf(mouseStrokesBoxGreen));
       props.setProperty("mouseStrokesBoxBlue", String.valueOf(mouseStrokesBoxBlue));
       props.setProperty("isTransparentShieldEnabled", String.valueOf(isTransparentShieldEnabled));
-      props.setProperty("transparentShieldX", String.valueOf(transparentShieldX));
-      props.setProperty("transparentShieldY", String.valueOf(transparentShieldY));
-      props.setProperty("transparentShieldScale", String.valueOf(transparentShieldScale));
-      props.setProperty("transparentShieldStatusColor", String.valueOf(transparentShieldStatusColor));
-      props.setProperty("transparentShieldStatusOutlineColor", String.valueOf(transparentShieldStatusOutlineColor));
+      props.setProperty("transparentShieldOpacity", String.valueOf(transparentShieldOpacity));
       props.setProperty("isLogoutSpotsEnabled", String.valueOf(isLogoutSpotsEnabled));
       props.setProperty("logoutSpotsDetectDisappears", String.valueOf(logoutSpotsDetectDisappears));
       props.setProperty("logoutSpotsLeaveMessages", String.valueOf(logoutSpotsLeaveMessages));
@@ -2739,6 +2851,67 @@ public class VoidCyanClient implements ClientModInitializer {
       }
    }
 
+   private static final Pattern CHAT_SENDER_PATTERN = Pattern.compile("^<([A-Za-z0-9_]{1,16})>");
+
+   public static String extractChatSender(String plain) {
+      Matcher m = CHAT_SENDER_PATTERN.matcher(plain);
+      if (m.find()) return m.group(1);
+      MinecraftClient client = MinecraftClient.getInstance();
+      if (client.world == null) return null;
+      for (PlayerEntity p : client.world.getPlayers()) {
+         String n = p.getName().getString();
+         int i = plain.indexOf(n);
+         if (i >= 0 && i < 40) {
+            String rest = plain.substring(i + n.length()).stripLeading();
+            if (rest.startsWith(":") || rest.startsWith("»") || rest.startsWith(">")) return n;
+         }
+      }
+
+      return null;
+   }
+
+   public static String chatBody(String plain, String sender) {
+      String rest = plain.substring(plain.indexOf(sender) + sender.length()).stripLeading();
+      return rest.replaceFirst("^[:»>]\s*", "");
+   }
+
+   public static String peerNickFor(String name) {
+      if (!isPeerNickEnabled || name == null || peerNicknames.isEmpty()) return null;
+      for (String pair : peerNicknames.split(",")) {
+         int i = pair.indexOf('=');
+         if (i > 0 && pair.substring(0, i).trim().equalsIgnoreCase(name)) {
+            String nick = pair.substring(i + 1).trim();
+            return nick.isEmpty() ? null : nick;
+         }
+      }
+
+      return null;
+   }
+
+   public static boolean isSenderInRange(String name) {
+      MinecraftClient client = MinecraftClient.getInstance();
+      if (client.player == null || client.world == null) return true;
+      for (PlayerEntity p : client.world.getPlayers()) {
+         if (p.getName().getString().equals(name)) {
+            double r = chatRangeFilterDistance;
+            return p.squaredDistanceTo(client.player) <= r * r;
+         }
+      }
+
+      return true;
+   }
+
+   public static String filterHarmfulPlain(String s) {
+      if (!isChatModuleEnabled || !isHarmfulWordFilterEnabled || s == null || s.isEmpty() || harmfulWordsList.isEmpty()) return s;
+      String lower = s.toLowerCase();
+      for (String w : harmfulWordsList.split(",")) {
+         String t = w.trim().toLowerCase();
+         if (!t.isEmpty() && lower.contains(t)) return "[Content Blocked - Harmful]";
+      }
+
+      return s;
+   }
+
    private static List<String> friendPatternSource = List.of();
    private static Pattern[] friendPatterns = new Pattern[0];
 
@@ -2761,8 +2934,13 @@ public class VoidCyanClient implements ClientModInitializer {
       CritEffectsManager.reload();
       AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
          CritEffectsManager.onAttack(player, world, entity);
+         FeatureModules.onAttack(player, world, entity);
          return net.minecraft.util.ActionResult.PASS;
       });
+      FeatureModules.initEvents();
+      ClientTickEvents.END_CLIENT_TICK.register(client -> FeatureModules.tick(client));
+      WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((ctx, outline) -> !FeatureWorld.overlayActive());
+      WorldRenderEvents.END_MAIN.register(ctx -> MotionBlurRenderer.capture());
       FriendManager.init();
       LogoutSpotsManager.init();
       NoteManager.loadNotes();
@@ -2827,11 +3005,17 @@ public class VoidCyanClient implements ClientModInitializer {
             HitboxRenderer.renderAll(context);
          }
 
+         if (isChatModuleEnabled && isChatBubblesEnabled) {
+            ChatBubbleRenderer.renderAll3D(context);
+         }
+
          // Crit FX models + billboard sparks render whenever the module is on.
          if (CritEffectsManager.enabled) {
             CritModelRenderer.render(context);
             CritBillboardFX.render(context);
          }
+
+         FeatureWorld.render(context);
 
          if (isWaypointsEnabled) {
             WaypointRenderer.renderAll3D(context);
@@ -2894,6 +3078,7 @@ public class VoidCyanClient implements ClientModInitializer {
          }
       });
       ClientTickEvents.END_CLIENT_TICK.register((EndTick)client -> {
+         if (!isDamageColorEnabled && !isTotemPopColorEnabled) updateHitColorTexture();
          CritBillboardFX.tickSparks(1.0F);
          // Effects module: fire "death" trigger when the local player dies.
          if (client.player != null && client.player.isDead() && !wasLocalPlayerDeadLastTick) {
@@ -2926,25 +3111,11 @@ public class VoidCyanClient implements ClientModInitializer {
             if (client.currentScreen == null) {
                client.setScreen(new EditHudScreen(null));
             } else if (client.currentScreen instanceof EditHudScreen) {
-               if (guiType == 0) {
-                  client.setScreen(new ClickGuiScreen(null));
-               } else {
-                  client.setScreen(new DropdownGuiScreen());
-               }
+               openMainGui(client, null);
             }
          }
 
          guiKeyWasDown = guiKeyDown;
-         boolean dropdownKeyDown = GLFW.glfwGetKey(window, 92) == 1;
-         if (dropdownKeyDown && !dropdownGuiKeyWasDown) {
-            if (client.currentScreen instanceof DropdownGuiScreen) {
-               client.setScreen(null);
-            } else if (client.currentScreen == null) {
-               client.setScreen(new DropdownGuiScreen());
-            }
-         }
-
-         dropdownGuiKeyWasDown = dropdownKeyDown;
          if (client.currentScreen == null) {
             for (Entry<String, Integer> entry : moduleKeybinds.entrySet()) {
                String mod = entry.getKey();
@@ -3290,6 +3461,8 @@ public class VoidCyanClient implements ClientModInitializer {
             resetScale(context);
          }
 
+         FeatureModules.renderHud(context);
+
          if (isTargetHudEnabled) {
             applyScale(context, targetHudX, targetHudY, targetHudScale);
             TargetHudRenderer.render(context);
@@ -3432,12 +3605,6 @@ public class VoidCyanClient implements ClientModInitializer {
             resetScale(context);
          }
 
-         if (isSystemResourcesEnabled) {
-            applyScale(context, systemResourcesX, systemResourcesY, systemResourcesScale);
-            SystemResourcesManager.render(context);
-            resetScale(context);
-         }
-
          if (isStopwatchEnabled) {
             applyScale(context, stopwatchX, stopwatchY, stopwatchScale);
             StopwatchManager.render(context);
@@ -3495,12 +3662,6 @@ public class VoidCyanClient implements ClientModInitializer {
          if (isMouseStrokesEnabled) {
             applyScale(context, mouseStrokesX, mouseStrokesY, mouseStrokesScale);
             MouseStrokesRenderer.render(context);
-            resetScale(context);
-         }
-
-         if (isTransparentShieldEnabled) {
-            applyScale(context, transparentShieldX, transparentShieldY, transparentShieldScale);
-            TransparentShieldRenderer.render(context);
             resetScale(context);
          }
 
@@ -3655,7 +3816,8 @@ public class VoidCyanClient implements ClientModInitializer {
          if (client.player != null) {
             if (client.currentScreen == null) {
                int startX = 0;
-               int startY = 0;
+               int pad = invHudShowBorders ? 3 : 0;
+               int startY = pad;
                int borderThickness = invHudBorderThickness;
                int borderColor = getPrimaryColor();
                int bgWidth = 176;
@@ -3663,21 +3825,40 @@ public class VoidCyanClient implements ClientModInitializer {
                int hotbarHeight = 22;
                int totalHeight = invHudShowHotbar ? mainInvHeight + hotbarHeight + 4 : mainInvHeight;
                if (!invHudTransparent) {
-                  context.drawTexture(
-                     RenderPipelines.GUI_TEXTURED, InventoryScreen.BACKGROUND_TEXTURE, startX, startY, 0.0F, 84.0F, bgWidth, mainInvHeight, 256, 256
-                  );
-                  if (invHudShowHotbar) {
-                     int hotbarScreenY = startY + mainInvHeight + 4;
+                  if (invHudShowBorders) {
                      context.drawTexture(
-                        RenderPipelines.GUI_TEXTURED, InventoryScreen.BACKGROUND_TEXTURE, startX, hotbarScreenY, 0.0F, 142.0F, bgWidth, hotbarHeight, 256, 256
+                        RenderPipelines.GUI_TEXTURED, InventoryScreen.BACKGROUND_TEXTURE, startX, startY, 0.0F, 84.0F, bgWidth, mainInvHeight, 256, 256
+                     );
+                  } else {
+                     context.drawTexture(
+                        RenderPipelines.GUI_TEXTURED, InventoryScreen.BACKGROUND_TEXTURE, startX + 7, startY, 7.0F, 84.0F, 162, mainInvHeight, 256, 256
                      );
                   }
+                  if (invHudShowHotbar) {
+                     int hotbarScreenY = startY + mainInvHeight + 4;
+                     if (invHudShowBorders) {
+                        context.drawTexture(
+                           RenderPipelines.GUI_TEXTURED, InventoryScreen.BACKGROUND_TEXTURE, startX, hotbarScreenY, 0.0F, 142.0F, bgWidth, hotbarHeight, 256, 256
+                        );
+                     } else {
+                        context.drawTexture(
+                           RenderPipelines.GUI_TEXTURED, InventoryScreen.BACKGROUND_TEXTURE, startX + 7, hotbarScreenY + 7, 7.0F, 149.0F, 162, 18, 256, 256
+                        );
+                     }
+                  }
 
-                  for (int i = 0; i < borderThickness; i++) {
-                     context.fill(startX - i, startY - i, startX + bgWidth + i, startY - i + 1, borderColor);
-                     context.fill(startX - i, startY + totalHeight + i - 1, startX + bgWidth + i, startY + totalHeight + i, borderColor);
-                     context.fill(startX - i, startY - i, startX - i + 1, startY + totalHeight + i, borderColor);
-                     context.fill(startX + bgWidth + i - 1, startY - i, startX + bgWidth + i, startY + totalHeight + i, borderColor);
+                  int bTop = startY - pad;
+                  int bH = totalHeight + pad * 2;
+                  for (int i = 0; i < (invHudShowBorders ? borderThickness : 0); i++) {
+                     context.fill(startX - i, bTop - i, startX + bgWidth + i, bTop - i + 1, borderColor);
+                     context.fill(startX - i, bTop + bH + i - 1, startX + bgWidth + i, bTop + bH + i, borderColor);
+                     context.fill(startX - i, bTop - i, startX - i + 1, bTop + bH + i, borderColor);
+                     context.fill(startX + bgWidth + i - 1, bTop - i, startX + bgWidth + i, bTop + bH + i, borderColor);
+                  }
+
+                  if (invHudGlow) {
+                     drawBorderGlow(context, startX - (invHudShowBorders ? borderThickness - 1 : 0), bTop - (invHudShowBorders ? borderThickness - 1 : 0),
+                        bgWidth + (invHudShowBorders ? (borderThickness - 1) * 2 : 0), bH + (invHudShowBorders ? (borderThickness - 1) * 2 : 0), borderColor);
                   }
                }
 
@@ -3807,8 +3988,26 @@ public class VoidCyanClient implements ClientModInitializer {
                int gap = 2;
                int bgWidth;
                int bgHeight;
+               int slotW = itemSize + gap;
                if (armorStatusOrientation == 1) {
-                  bgWidth = itemSize * 4 + gap * 5 + 5;
+                  for (int slot : armorSlots) {
+                     ItemStack st = client.player.getEquippedStack(switch (slot) {
+                        case 1 -> EquipmentSlot.LEGS;
+                        case 2 -> EquipmentSlot.CHEST;
+                        case 3 -> EquipmentSlot.HEAD;
+                        default -> EquipmentSlot.FEET;
+                     });
+                     if (!st.isEmpty() && st.isDamageable()) {
+                        int max = st.getMaxDamage();
+                        int cur = max - st.getDamage();
+                        String t = armorStatusDisplayMode == 0
+                           ? cur * 100 / max + "%"
+                           : armorStatusDisplayMode == 1 ? cur + "/" + max : cur * 100 / max + "% (" + cur + "/" + max + ")";
+                        slotW = Math.max(slotW, (int)(client.textRenderer.getWidth(t) * 0.6F) + gap * 2);
+                     }
+                  }
+
+                  bgWidth = slotW * 4 + gap * 2 + 5;
                   bgHeight = itemSize + gap * 2 + 5;
                } else {
                   bgWidth = 100;
@@ -3816,6 +4015,7 @@ public class VoidCyanClient implements ClientModInitializer {
                }
 
                if (!armorStatusTransparentBg) {
+                  if (armorStatusGlow) drawBorderGlow(context, x, y, bgWidth, bgHeight, getPrimaryColor());
                   context.fill(x, y, x + bgWidth, y + bgHeight, Integer.MIN_VALUE);
                   context.fill(x, y, x + bgWidth, y + 1, getPrimaryColor());
                   context.fill(x, y + bgHeight - 1, x + bgWidth, y + bgHeight, getPrimaryColor());
@@ -3835,7 +4035,7 @@ public class VoidCyanClient implements ClientModInitializer {
                   int itemX;
                   int itemY;
                   if (armorStatusOrientation == 1) {
-                     itemX = x + gap + i * (itemSize + gap);
+                     itemX = x + gap + i * slotW + (slotW - itemSize) / 2;
                      itemY = y + gap;
                   } else {
                      itemX = x + 5;
@@ -3877,15 +4077,24 @@ public class VoidCyanClient implements ClientModInitializer {
                         int textX;
                         int textY;
                         if (armorStatusOrientation == 1) {
-                           int textWidth = client.textRenderer.getWidth(durabilityText);
+                           int textWidth = (int)(client.textRenderer.getWidth(durabilityText) * 0.6F);
                            textX = itemX + (itemSize - textWidth) / 2;
-                           textY = itemY - 10;
+                           textY = itemY - 8;
                         } else {
                            textX = x + 28;
                            textY = itemY + 6;
                         }
 
-                        context.drawTextWithShadow(client.textRenderer, durabilityText, textX, textY, -1);
+                        if (armorStatusOrientation == 1) {
+                           context.getMatrices().pushMatrix();
+                           context.getMatrices().translate(textX, textY);
+                           context.getMatrices().scale(0.6F, 0.6F);
+                           context.drawTextWithShadow(client.textRenderer, durabilityText, 0, 0, -1);
+                           context.getMatrices().popMatrix();
+                        } else {
+                           context.drawTextWithShadow(client.textRenderer, durabilityText, textX, textY, -1);
+                        }
+
                         if (percent <= armorStatusWarningThreshold && percent > 0) {
                            int warningY;
                            int warningX;
@@ -4381,7 +4590,9 @@ public class VoidCyanClient implements ClientModInitializer {
                }
             }
 
-            int ping = entry != null ? entry.getLatency() : 0;
+            var pingLog = client.getDebugHud().getPingLog();
+            int ping = pingLog.getLength() > 0 ? (int)pingLog.get(pingLog.getLength() - 1) : 0;
+            if (ping <= 0) ping = entry != null ? entry.getLatency() : 0;
             if (ping <= 0 && client.getCurrentServerEntry() != null) {
                ping = (int)client.getCurrentServerEntry().ping;
             }
@@ -4807,8 +5018,6 @@ public class VoidCyanClient implements ClientModInitializer {
          blockIndicatorY = topY;
          tpsDisplayX = midX;
          tpsDisplayY = topY;
-         systemResourcesX = midX;
-         systemResourcesY = topY;
          stopwatchX = midX;
          stopwatchY = topY;
          watermarkX = midX;

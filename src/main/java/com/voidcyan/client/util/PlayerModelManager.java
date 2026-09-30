@@ -42,19 +42,39 @@ public final class PlayerModelManager {
    private static volatile ObjModelParser.Result cachedResult;
    /** True when the texture file exists and was registered successfully. */
    private static volatile boolean textureRegistered;
+   private static boolean fallbackRegistered;
    /** Nano-timestamp of the last import, used for status messages. */
 
    private PlayerModelManager() {}
 
+   private static boolean loadAttempted;
+
+   /** Loads model.obj / texture.png from the config dir once per session (imports only happen in the GUI, so a restart would otherwise lose the model). */
+   private static void loadSaved() {
+      if (loadAttempted) return;
+      loadAttempted = true;
+      if (cachedResult == null && Files.isRegularFile(MODEL_FILE)) {
+         try {
+            cachedResult = ObjModelParser.parse(MODEL_FILE);
+         } catch (IOException | RuntimeException ignored) {
+         }
+      }
+
+      ensureTextureRegistered();
+   }
+
    public static boolean hasModel() {
+      loadSaved();
       return cachedResult != null;
    }
 
    public static ObjModelParser.Result getModel() {
+      loadSaved();
       return cachedResult;
    }
 
    public static boolean hasTexture() {
+      loadSaved();
       return textureRegistered;
    }
 
@@ -125,7 +145,8 @@ public final class PlayerModelManager {
    public static RenderLayer fallbackLayer() {
       try {
          TextureManager tm = MinecraftClient.getInstance().getTextureManager();
-         if (tm.getTexture(FALLBACK_TEXTURE_ID) == null) {
+         if (!fallbackRegistered) {
+            fallbackRegistered = true;
             NativeImage white = new NativeImage(1, 1, false);
             white.setColorArgb(0, 0, 0xFFFFFFFF);
             NativeImageBackedTexture tex = new NativeImageBackedTexture(() -> "voidcyan_playermodel_white", white);

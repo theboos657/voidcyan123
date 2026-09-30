@@ -30,6 +30,7 @@ public final class ChinaHatRenderer {
                float r = VoidCyanClient.chinaHatRed / 255.0F;
                float g = VoidCyanClient.chinaHatGreen / 255.0F;
                float b = VoidCyanClient.chinaHatBlue / 255.0F;
+               float tickDelta = client.getRenderTickCounter().getTickProgress(false);
                float size = Math.max(0.1F, VoidCyanClient.chinaHatSize);
                float brimRadius = 0.55F * size;
                float topY = 0.45F * size;
@@ -37,9 +38,10 @@ public final class ChinaHatRenderer {
 
                for (PlayerEntity player : client.world.getPlayers()) {
                   if ((player != client.player || !client.options.getPerspective().isFirstPerson()) && !player.isRemoved() && player.isAlive()) {
-                     double px = player.getX() - cameraPos.x;
-                     double py = player.getY() - cameraPos.y + player.getHeight() + 0.05;
-                     double pz = player.getZ() - cameraPos.z;
+                     Vec3d lerped = player.getLerpedPos(tickDelta);
+                     double px = lerped.x - cameraPos.x;
+                     double py = lerped.y - cameraPos.y + player.getHeight() + 0.13;
+                     double pz = lerped.z - cameraPos.z;
                      matrices.push();
                      matrices.translate(px, py, pz);
                      matrices.multiply(new Quaternionf().rotationY(-player.getYaw() * (float) (Math.PI / 180.0)));

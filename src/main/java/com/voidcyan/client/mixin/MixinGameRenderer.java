@@ -28,26 +28,29 @@ public class MixinGameRenderer {
       }
 
       if (VoidCyanClient.isZoomEnabled) {
-         double target = VoidCyanClient.zoomActive ? VoidCyanClient.zoomLevel : 1.0;
+         long nowNs = System.nanoTime();
+         double dt = voidcyan$lastZoomNs == 0L ? 0.016 : Math.min(0.1, (nowNs - voidcyan$lastZoomNs) / 1.0E9);
+         voidcyan$lastZoomNs = nowNs;
+         double target = com.voidcyan.client.FeatureModules.zoomTarget(Math.max(2.0, VoidCyanClient.zoomLevel), VoidCyanClient.zoomActive, dt);
+         double cur = Math.max(1.0, VoidCyanClient.currentZoomMultiplier);
          if (VoidCyanClient.zoomSmoothAnimation) {
             double speed = Math.max(0.01, Math.min(1.0, VoidCyanClient.zoomAnimationSpeed));
-            if (VoidCyanClient.currentZoomMultiplier != target) {
-               VoidCyanClient.currentZoomMultiplier += (target - VoidCyanClient.currentZoomMultiplier) * speed;
-               if (Math.abs(VoidCyanClient.currentZoomMultiplier - target) < 0.005) {
-                  VoidCyanClient.currentZoomMultiplier = target;
-               }
-            }
+            // Interpolate in log space so 1x -> 1000x feels even.
+            double next = Math.exp(Math.log(cur) + (Math.log(target) - Math.log(cur)) * speed);
+            VoidCyanClient.currentZoomMultiplier = Math.abs(Math.log(target) - Math.log(next)) < 0.002 ? target : next;
          } else {
             VoidCyanClient.currentZoomMultiplier = target;
          }
 
          if (VoidCyanClient.currentZoomMultiplier > 1.001) {
-            cir.setReturnValue((float)(fov / VoidCyanClient.currentZoomMultiplier));
+            cir.setReturnValue(Math.max(0.05F, (float)(fov / VoidCyanClient.currentZoomMultiplier)));
          }
       } else {
          VoidCyanClient.currentZoomMultiplier = 1.0;
       }
    }
+
+   private static long voidcyan$lastZoomNs = 0L;
 
    @Inject(
       method = {"tiltViewWhenHurt"},

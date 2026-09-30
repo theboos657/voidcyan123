@@ -39,6 +39,11 @@ public class PotionStatusRenderer {
                }
 
                boolean horizontal = VoidCyanClient.potionStatusOrientation == 0;
+               if (VoidCyanClient.potionStatusStyle == 1) {
+                  renderVanilla(context, client, sorted, horizontal);
+                  return;
+               }
+
                int count = sorted.size();
                int totalW;
                int totalH;
@@ -46,15 +51,16 @@ public class PotionStatusRenderer {
                   totalW = count * 26 + 3;
                   totalH = 32 + (VoidCyanClient.potionStatusShowDuration ? 10 : 0);
                } else {
-                  totalW = 32 + (VoidCyanClient.potionStatusShowAmplifier ? 40 : 0);
+                  totalW = verticalWidth(sorted);
                   totalH = count * 26 + 3;
                }
 
                context.fill(0, 0, totalW, totalH, Integer.MIN_VALUE);
-               context.fill(0, 0, totalW, 1, -16711681);
-               context.fill(0, totalH - 1, totalW, totalH, -16711681);
-               context.fill(0, 0, 1, totalH, -16711681);
-               context.fill(totalW - 1, 0, totalW, totalH, -16711681);
+               int theme = VoidCyanClient.getPrimaryColor();
+               context.fill(0, 0, totalW, 1, theme);
+               context.fill(0, totalH - 1, totalW, totalH, theme);
+               context.fill(0, 0, 1, totalH, theme);
+               context.fill(totalW - 1, 0, totalW, totalH, theme);
 
                for (int i = 0; i < sorted.size(); i++) {
                   StatusEffectInstance inst = sorted.get(i);
@@ -128,6 +134,53 @@ public class PotionStatusRenderer {
       }
    }
 
+   /** Vanilla-style boxes (like the in-game effect HUD) with name / duration text. */
+   private static void renderVanilla(DrawContext context, MinecraftClient client, List<StatusEffectInstance> sorted, boolean horizontal) {
+      Identifier bg = Identifier.of("minecraft", "hud/effect_background");
+      Identifier bgAmbient = Identifier.of("minecraft", "hud/effect_background_ambient");
+      for (int i = 0; i < sorted.size(); i++) {
+         StatusEffectInstance inst = sorted.get(i);
+         RegistryEntry<StatusEffect> effect = inst.getEffectType();
+         int bx = horizontal ? i * 26 : 0;
+         int by = horizontal ? 0 : i * 26;
+         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, inst.isAmbient() ? bgAmbient : bg, bx, by, 24, 24);
+         Identifier texture = effect.getKey().map(key -> key.getValue().withPrefixedPath("mob_effect/")).orElse(MissingSprite.getMissingSpriteId());
+         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, texture, bx + 3, by + 3, 18, 18);
+         String durationStr = formatDuration(inst.getDuration());
+         int durCol = isLowDuration(inst) ? -43691 : -1;
+         if (horizontal) {
+            if (VoidCyanClient.potionStatusShowDuration) {
+               context.getMatrices().pushMatrix();
+               context.getMatrices().translate(bx + 12.0F, by + 26.0F);
+               context.getMatrices().scale(0.75F, 0.75F);
+               context.drawTextWithShadow(client.textRenderer, durationStr, -client.textRenderer.getWidth(durationStr) / 2, 0, durCol);
+               context.getMatrices().popMatrix();
+            }
+
+            if (VoidCyanClient.potionStatusShowAmplifier && inst.getAmplifier() > 0) {
+               String amp = romanNumeral(inst.getAmplifier() + 1);
+               context.getMatrices().pushMatrix();
+               context.getMatrices().translate(bx + 22.0F, by + 2.0F);
+               context.getMatrices().scale(0.6F, 0.6F);
+               context.drawTextWithShadow(client.textRenderer, amp, -client.textRenderer.getWidth(amp), 0, -256);
+               context.getMatrices().popMatrix();
+            }
+         } else {
+            String name = getEffectName(effect);
+            String amp = amplifierStr(inst);
+            if (VoidCyanClient.potionStatusShowAmplifier && !amp.isEmpty()) name += " " + amp;
+            context.drawTextWithShadow(client.textRenderer, name, bx + 28, by + 4, -1);
+            if (VoidCyanClient.potionStatusShowDuration) {
+               context.getMatrices().pushMatrix();
+               context.getMatrices().translate(bx + 28.0F, by + 14.0F);
+               context.getMatrices().scale(0.85F, 0.85F);
+               context.drawTextWithShadow(client.textRenderer, durationStr, 0, 0, durCol == -1 ? -5592321 : durCol);
+               context.getMatrices().popMatrix();
+            }
+         }
+      }
+   }
+
    private static int category(StatusEffectInstance inst) {
       int ordinal = ((StatusEffect)inst.getEffectType().value()).getCategory().ordinal();
       if (ordinal == 0) {
@@ -193,8 +246,23 @@ public class PotionStatusRenderer {
       return Text.translatable(((StatusEffect)entry.value()).getTranslationKey()).getString();
    }
 
+   private static int verticalWidth(Collection<StatusEffectInstance> effects) {
+      if (!VoidCyanClient.potionStatusShowAmplifier && !VoidCyanClient.potionStatusShowDuration) return 32;
+      var tr = MinecraftClient.getInstance().textRenderer;
+      int max = 0;
+      for (StatusEffectInstance inst : effects) {
+         String name = getEffectName(inst.getEffectType());
+         if (VoidCyanClient.potionStatusShowAmplifier && !amplifierStr(inst).isEmpty()) name += " " + amplifierStr(inst);
+         max = Math.max(max, Math.max(tr.getWidth(name), (int)(tr.getWidth(formatDuration(inst.getDuration())) * 0.85F)));
+      }
+
+      return 3 + 20 + 4 + Math.max(max, 40) + 6;
+   }
+
    public static int getWidth(int count) {
-      return VoidCyanClient.potionStatusOrientation == 0 ? Math.max(1, count) * 26 + 3 : 32 + (VoidCyanClient.potionStatusShowAmplifier ? 40 : 0);
+      if (VoidCyanClient.potionStatusOrientation == 0) return Math.max(1, count) * 26 + 3;
+      var player = MinecraftClient.getInstance().player;
+      return player == null || player.getStatusEffects().isEmpty() ? 32 + (VoidCyanClient.potionStatusShowAmplifier ? 40 : 0) : verticalWidth(player.getStatusEffects());
    }
 
    public static int getHeight(int count) {

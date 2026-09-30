@@ -12,7 +12,6 @@ import com.voidcyan.client.module.PotionStatusRenderer;
 import com.voidcyan.client.module.ServerInfoManager;
 import com.voidcyan.client.module.TargetHudRenderer;
 import com.voidcyan.client.module.TextHudRenderer;
-import com.voidcyan.client.module.TransparentShieldRenderer;
 import com.voidcyan.client.module.WatermarkManager;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +50,7 @@ public class EditHudScreen extends Screen {
       this.hudElements
          .add(
             new ClickGuiScreen.HudElement(
-               "Inv HUD",
+               "Inventory",
                () -> VoidCyanClient.isInvHudEnabled,
                () -> VoidCyanClient.invHudX,
                () -> VoidCyanClient.invHudY,
@@ -350,6 +349,96 @@ public class EditHudScreen extends Screen {
       this.hudElements
          .add(
             new ClickGuiScreen.HudElement(
+               "Day Counter",
+               () -> com.voidcyan.client.FeatureModules.on[1],
+               () -> com.voidcyan.client.FeatureModules.dayX,
+               () -> com.voidcyan.client.FeatureModules.dayY,
+               () -> com.voidcyan.client.FeatureModules.dayScale,
+               x -> com.voidcyan.client.FeatureModules.dayX = x,
+               y -> com.voidcyan.client.FeatureModules.dayY = y,
+               s -> com.voidcyan.client.FeatureModules.dayScale = s,
+               () -> com.voidcyan.client.FeatureModules.textBoxWidth(com.voidcyan.client.FeatureModules.dayText()),
+               () -> 18
+            )
+         );
+      this.hudElements
+         .add(
+            new ClickGuiScreen.HudElement(
+               "Direction HUD",
+               () -> com.voidcyan.client.FeatureModules.on[2],
+               () -> com.voidcyan.client.FeatureModules.dirX,
+               () -> com.voidcyan.client.FeatureModules.dirY,
+               () -> com.voidcyan.client.FeatureModules.dirScale,
+               x -> com.voidcyan.client.FeatureModules.dirX = x,
+               y -> com.voidcyan.client.FeatureModules.dirY = y,
+               s -> com.voidcyan.client.FeatureModules.dirScale = s,
+               () -> com.voidcyan.client.FeatureModules.textBoxWidth(com.voidcyan.client.FeatureModules.dirText()),
+               () -> 18
+            )
+         );
+      this.hudElements
+         .add(
+            new ClickGuiScreen.HudElement(
+               "Height Limit",
+               () -> com.voidcyan.client.FeatureModules.on[3],
+               () -> com.voidcyan.client.FeatureModules.hlX,
+               () -> com.voidcyan.client.FeatureModules.hlY,
+               () -> com.voidcyan.client.FeatureModules.hlScale,
+               x -> com.voidcyan.client.FeatureModules.hlX = x,
+               y -> com.voidcyan.client.FeatureModules.hlY = y,
+               s -> com.voidcyan.client.FeatureModules.hlScale = s,
+               () -> com.voidcyan.client.FeatureModules.textBoxWidth(com.voidcyan.client.FeatureModules.heightText()),
+               () -> 18
+            )
+         );
+      this.hudElements
+         .add(
+            new ClickGuiScreen.HudElement(
+               "Pixel Look",
+               () -> com.voidcyan.client.FeatureModules.on[16],
+               () -> com.voidcyan.client.FeatureModules.plX,
+               () -> com.voidcyan.client.FeatureModules.plY,
+               () -> com.voidcyan.client.FeatureModules.plScale,
+               x -> com.voidcyan.client.FeatureModules.plX = x,
+               y -> com.voidcyan.client.FeatureModules.plY = y,
+               s -> com.voidcyan.client.FeatureModules.plScale = s,
+               () -> com.voidcyan.client.FeatureModules.textBoxWidth(com.voidcyan.client.FeatureModules.pixelText()),
+               () -> 18
+            )
+         );
+      this.hudElements
+         .add(
+            new ClickGuiScreen.HudElement(
+               "Action Bar",
+               () -> VoidCyanClient.isActionBarEnabled,
+               () -> VoidCyanClient.actionBarX,
+               () -> VoidCyanClient.actionBarY,
+               () -> VoidCyanClient.actionBarScale,
+               x -> VoidCyanClient.actionBarX = x,
+               y -> VoidCyanClient.actionBarY = y,
+               s -> VoidCyanClient.actionBarScale = s,
+               () -> VoidCyanClient.actionBarWidth,
+               () -> 12
+            )
+         );
+      this.hudElements
+         .add(
+            new ClickGuiScreen.HudElement(
+               "Scoreboard",
+               () -> VoidCyanClient.isScoreboardEnabled,
+               () -> (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinX : this.width - 103) + VoidCyanClient.scoreboardOffsetX,
+               () -> (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinY : this.height / 2 - 45) + VoidCyanClient.scoreboardOffsetY,
+               () -> 1.0F,
+               x -> VoidCyanClient.scoreboardOffsetX = x - (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinX : this.width - 103),
+               y -> VoidCyanClient.scoreboardOffsetY = y - (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinY : this.height / 2 - 45),
+               s -> {},
+               () -> VoidCyanClient.sbKnown ? VoidCyanClient.sbMaxX - VoidCyanClient.sbMinX : 100,
+               () -> VoidCyanClient.sbKnown ? VoidCyanClient.sbMaxY - VoidCyanClient.sbMinY : 90
+            )
+         );
+      this.hudElements
+         .add(
+            new ClickGuiScreen.HudElement(
                "Keybinds Display",
                () -> VoidCyanClient.isKeybindsDisplayEnabled,
                () -> VoidCyanClient.keybindsHudX,
@@ -606,21 +695,6 @@ public class EditHudScreen extends Screen {
                () -> 60
             )
          );
-      this.hudElements
-         .add(
-            new ClickGuiScreen.HudElement(
-               "Transparent Shield",
-               () -> VoidCyanClient.isTransparentShieldEnabled,
-               () -> VoidCyanClient.transparentShieldX,
-               () -> VoidCyanClient.transparentShieldY,
-               () -> VoidCyanClient.transparentShieldScale,
-               x -> VoidCyanClient.transparentShieldX = x,
-               y -> VoidCyanClient.transparentShieldY = y,
-               s -> VoidCyanClient.transparentShieldScale = s,
-               () -> 182,
-               () -> 9
-            )
-         );
    }
 
    protected void init() {
@@ -738,10 +812,6 @@ public class EditHudScreen extends Screen {
                   MouseStrokesRenderer.renderAt(context, hX, hY, mouseX, mouseY, this.width, this.height);
                }
 
-               if (el.name.equals("Transparent Shield") && enabled) {
-                  TransparentShieldRenderer.renderAt(context, hX, hY, scaledWidth, scaledHeight);
-               }
-
                int dotSize = 4;
                int dotAlpha = (int)((enabled ? 255 : 68) * progress);
                context.fill(hX - dotSize, hY - dotSize, hX + dotSize, hY + dotSize, dotAlpha << 24 | 16777215);
@@ -848,11 +918,7 @@ public class EditHudScreen extends Screen {
       int btnX = this.width / 2 - btnW / 2;
       int btnY = this.height / 2 - btnH / 2;
       if (mouseX >= btnX && mouseX <= btnX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
-         if (VoidCyanClient.guiType == 0) {
-            this.client.setScreen(new ClickGuiScreen(this));
-         } else {
-            this.client.setScreen(new DropdownGuiScreen());
-         }
+         VoidCyanClient.openMainGui(this.client, this);
 
          return true;
       } else {

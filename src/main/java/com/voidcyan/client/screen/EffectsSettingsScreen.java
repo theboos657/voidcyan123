@@ -93,7 +93,7 @@ public class EffectsSettingsScreen extends Screen {
    }
 
    private int totalRows() {
-      int n = CritBillboardFX.PRESET_NAMES.length;
+      int n = this.keys().size();
       return (n + COLS - 1) / COLS;
    }
 
@@ -102,11 +102,53 @@ public class EffectsSettingsScreen extends Screen {
       this.statusUntil = System.currentTimeMillis() + 2600L;
    }
 
+   private List<String> customs = new java.util.ArrayList<>();
+
+   private void refreshCustoms() {
+      this.customs.clear();
+      CritBillboardFX.CUSTOM_PARTS.clear();
+      File[] fs = CritEffectsManager.getEffectsDir().listFiles((d, n) -> n.toLowerCase().endsWith(".json"));
+      if (fs == null) return;
+      com.google.gson.Gson gson = new com.google.gson.Gson();
+      for (File f : fs) {
+         try {
+            com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(Files.readString(f.toPath(), StandardCharsets.UTF_8)).getAsJsonObject();
+            if (!o.has("parts")) continue;
+            String n = f.getName().replaceAll("[.]json$", "");
+            List<com.voidcyan.client.FxPart> parts = new java.util.ArrayList<>();
+            for (var e : o.getAsJsonArray("parts")) parts.add(gson.fromJson(e, com.voidcyan.client.FxPart.class));
+            this.customs.add(n);
+            CritBillboardFX.CUSTOM_PARTS.put(n, parts);
+         } catch (Exception ignored) {
+         }
+      }
+   }
+
+   private List<String> keys() {
+      List<String> k = new java.util.ArrayList<>(List.of(CritBillboardFX.PRESET_NAMES));
+      for (String c : this.customs) k.add("custom:" + c);
+      return k;
+   }
+
+   private String label(String key) {
+      return key.startsWith("custom:") ? key.substring(7) + " (custom)" : CritBillboardFX.presetDisplayName(key);
+   }
+
    private File presetFile(String shape) {
+      if (shape.startsWith("custom:")) return new File(CritEffectsManager.getEffectsDir(), shape.substring(7) + ".json");
       return new File(CritEffectsManager.getEffectsDir(), "preset_" + shape + ".json");
    }
 
    private boolean isInstalled(String shape) {
+      if (shape.startsWith("custom:")) {
+         try {
+            com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(Files.readString(this.presetFile(shape).toPath(), StandardCharsets.UTF_8)).getAsJsonObject();
+            return !o.has("enabled") || o.get("enabled").getAsBoolean();
+         } catch (Exception e) {
+            return false;
+         }
+      }
+
       return this.presetFile(shape).isFile();
    }
 
@@ -133,13 +175,31 @@ public class EffectsSettingsScreen extends Screen {
          obj.addProperty("trigger", trigger);
          Files.writeString(f.toPath(), obj.toString(), StandardCharsets.UTF_8);
          CritEffectsManager.reload();
-         this.status(CritBillboardFX.presetDisplayName(shape) + " now fires on: " + triggerLabel(trigger));
+         this.status(this.label(shape) + " now fires on: " + triggerLabel(trigger));
       } catch (Exception ex) {
          this.status("Failed to update trigger");
       }
    }
 
+   private void setCustomEnabled(String shape, boolean on) {
+      try {
+         File f = this.presetFile(shape);
+         com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(Files.readString(f.toPath(), StandardCharsets.UTF_8)).getAsJsonObject();
+         o.addProperty("enabled", on);
+         Files.writeString(f.toPath(), o.toString(), StandardCharsets.UTF_8);
+         CritEffectsManager.reload();
+         this.status((on ? "Enabled " : "Disabled ") + this.label(shape));
+      } catch (Exception e) {
+         this.status("Failed to update effect file");
+      }
+   }
+
    private void installPreset(String shape) {
+      if (shape.startsWith("custom:")) {
+         this.setCustomEnabled(shape, true);
+         return;
+      }
+
       try {
          CritEffectsManager.reload();
          File dir = CritEffectsManager.getEffectsDir();
@@ -168,6 +228,11 @@ public class EffectsSettingsScreen extends Screen {
    }
 
    private void uninstallPreset(String shape) {
+      if (shape.startsWith("custom:")) {
+         this.setCustomEnabled(shape, false);
+         return;
+      }
+
       try {
          Files.deleteIfExists(this.presetFile(shape).toPath());
          CritEffectsManager.reload();
@@ -182,6 +247,7 @@ public class EffectsSettingsScreen extends Screen {
       this.openTime = System.currentTimeMillis();
       CritBillboardFX.clearPreviews();
       this.hoverSince.clear();
+      this.refreshCustoms();
    }
 
    @Override
@@ -215,8 +281,9 @@ public class EffectsSettingsScreen extends Screen {
          this.scrollOffset += (this.scrollTarget - this.scrollOffset) * 0.3F;
       }
 
-      for (int i = 0; i < CritBillboardFX.PRESET_NAMES.length; i++) {
-         String shape = CritBillboardFX.PRESET_NAMES[i];
+      List<String> allKeys = this.keys();
+      for (int i = 0; i < allKeys.size(); i++) {
+         String shape = allKeys.get(i);
          int row = i / COLS;
          int col = i % COLS;
          int cx = gx + col * (CELL_W + GAP);
@@ -237,6 +304,11 @@ public class EffectsSettingsScreen extends Screen {
          int barY = top + (int) (((bottom - top) - barH) * (this.scrollOffset / (float) this.maxScroll));
          context.fill(trackX, barY, trackX + 3, barY + barH, 0x90FFFFFF);
       }
+
+      // 3D Modeler button (top right)
+      boolean mh = mouseX >= this.width - 136 && mouseX <= this.width - 12 && mouseY >= 12 && mouseY <= 32;
+      this.fillRounded(context, this.width - 136, 12, 124, 20, 5, 0x66000000 | (mh ? this.primaryColor : 0x2A2333) & 0xFFFFFF);
+      this.textCentered(context, "3D Modeler", this.width - 74, 18, 0xFFFFFFFF);
 
       // Bottom bar
       int by = this.height - 30;
@@ -303,7 +375,7 @@ public class EffectsSettingsScreen extends Screen {
    private void drawPreviewCell(DrawContext context, String shape, int x, int y, double mouseX, double mouseY, float anim) {
       boolean hovered = mouseX >= x && mouseX <= x + CELL_W && mouseY >= y && mouseY <= y + CELL_H;
       boolean on = this.isInstalled(shape);
-      int col = CritBillboardFX.presetColor(shape);
+      int col = shape.startsWith("custom:") ? 0xFF00F5FF : CritBillboardFX.presetColor(shape);
 
       int bg = on ? 0x66161E2C : 0x44101420;
       int border = on ? 0xFF2FBF71 : (hovered ? 0xFFB8C2D0 : 0x608A93A6);
@@ -334,7 +406,7 @@ public class EffectsSettingsScreen extends Screen {
          CritBillboardFX.beginPreview(shape, true);
          sparks = CritBillboardFX.previewSparks(shape);
       }
-      double scale = 14.0; // world units -> px (sparks are now 0.5x size = fine pixels)
+      double scale = shape.startsWith("custom:") ? 34.0 : 14.0; // world units -> px (sparks are now 0.5x size = fine pixels)
       int cx = x + CELL_W / 2;
       int cy = y + CELL_H / 2 + 6;
       for (CritBillboardFX.Spark s : sparks) {
@@ -369,7 +441,7 @@ public class EffectsSettingsScreen extends Screen {
          this.fillRect(context, px, py, px + w, py + w, argbA);
       }
 
-      String name = CritBillboardFX.presetDisplayName(shape);
+      String name = this.label(shape);
       this.textCentered(context, name, x + CELL_W / 2, y + 6, 0xFFF0F3F8);
       String state = on ? ("\u2714 " + triggerLabel(this.installedTrigger(shape))) : "Click to enable";
       this.textCentered(context, state, x + CELL_W / 2, y + CELL_H - 12, on ? 0xFF7CFC9B : 0xFF8A93A6);
@@ -402,6 +474,10 @@ public class EffectsSettingsScreen extends Screen {
       double mouseX = click.x();
       double mouseY = click.y();
       int button = click.button();
+      if (button == 0 && this.triggerMenuFor == null && mouseX >= this.width - 136 && mouseX <= this.width - 12 && mouseY >= 12 && mouseY <= 32) {
+         this.client.setScreen(new ParticleModelerScreen(this));
+         return true;
+      }
 
       // ---- trigger popup menu handling ----
       if (this.triggerMenuFor != null) {
@@ -431,8 +507,9 @@ public class EffectsSettingsScreen extends Screen {
       int top = this.gridTop();
       int bottom = this.gridBottom();
       if (mouseY >= top && mouseY <= bottom) {
-         for (int i = 0; i < CritBillboardFX.PRESET_NAMES.length; i++) {
-            String shape = CritBillboardFX.PRESET_NAMES[i];
+         List<String> allKeys = this.keys();
+         for (int i = 0; i < allKeys.size(); i++) {
+            String shape = allKeys.get(i);
             int row = i / COLS;
             int col = i % COLS;
             int cx = gx + col * (CELL_W + GAP);

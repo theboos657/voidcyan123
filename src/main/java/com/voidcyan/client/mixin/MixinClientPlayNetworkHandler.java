@@ -15,10 +15,19 @@ import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin({ClientPlayNetworkHandler.class})
 public class MixinClientPlayNetworkHandler {
+   @Redirect(
+      method = "tick",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/DebugHud;shouldShowPacketSizeAndPingCharts()Z")
+   )
+   private boolean voidcyan$keepPingSampling(net.minecraft.client.gui.hud.DebugHud hud) {
+      return hud.shouldShowPacketSizeAndPingCharts() || VoidCyanClient.isPingDisplayEnabled;
+   }
+
    @Inject(
       method = {"onDeathMessage"},
       at = {@At("TAIL")}
