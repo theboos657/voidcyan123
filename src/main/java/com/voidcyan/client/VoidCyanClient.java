@@ -1524,7 +1524,8 @@ public class VoidCyanClient implements ClientModInitializer {
             }
 
             guiAnimationDurationMs = Integer.parseInt(props.getProperty("guiAnimationDurationMs", "300"));
-            clickGuiScale = Float.parseFloat(props.getProperty("clickGuiScale", "1.7"));
+            // Older configs stored the raw multiplier; the setting now displays value/1.7, so reset those once to the 1.7 default (shown as 1.0x).
+            clickGuiScale = props.getProperty("clickGuiScaleV2") == null ? 1.7F : Float.parseFloat(props.getProperty("clickGuiScale", "1.7"));
             guiType = Math.max(0, Math.min(2, Integer.parseInt(props.getProperty("guiProfile", "0"))));
             isArmorStatusEnabled = Boolean.parseBoolean(props.getProperty("isArmorStatusEnabled", "false"));
             allTimeKills = Integer.parseInt(props.getProperty("allTimeKills", "0"));
@@ -2427,6 +2428,7 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("isNotificationsAnimEnabled", String.valueOf(isNotificationsAnimEnabled));
       props.setProperty("guiAnimationDurationMs", String.valueOf(guiAnimationDurationMs));
       props.setProperty("clickGuiScale", String.valueOf(clickGuiScale));
+      props.setProperty("clickGuiScaleV2", "1");
       props.setProperty("guiProfile", String.valueOf(guiType));
       props.setProperty("notificationsAnimDirection", String.valueOf(notificationsAnimDirection));
       props.setProperty("notificationsX", String.valueOf(notificationsX));
