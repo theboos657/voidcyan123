@@ -168,6 +168,36 @@ public class ClickGuiScreen extends Screen {
    @Override
    public void removed() {
       GuiStyle.orbitSkin = false;
+      this.releasePreviewTextures();
+   }
+
+   /** Frees the screenshot / background preview textures (full-size images) when the menu closes; they reload lazily. */
+   private void releasePreviewTextures() {
+      try {
+         var tm = MinecraftClient.getInstance().getTextureManager();
+         for (Identifier id : this.screenshotTextures.values()) {
+            if (id != null) tm.destroyTexture(id);
+         }
+
+         for (Identifier id : this.backgroundTextures.values()) {
+            if (id != null) tm.destroyTexture(id);
+         }
+
+         for (AnimatedTexture tex : this.previewAnimatedTextures.values()) {
+            try {
+               tex.close();
+            } catch (Exception ignored) {
+            }
+         }
+      } catch (Exception ignored) {
+      }
+
+      this.screenshotTextures.clear();
+      this.screenshotDimensions.clear();
+      this.previewAnimatedTextures.clear();
+      this.backgroundTextures.clear();
+      this.backgroundDimensions.clear();
+      this.backgroundTextureObjects.clear();
    }
 
    @Override

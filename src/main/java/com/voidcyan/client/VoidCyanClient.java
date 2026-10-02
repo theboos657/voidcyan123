@@ -2981,6 +2981,8 @@ public class VoidCyanClient implements ClientModInitializer {
       ClientPlayConnectionEvents.DISCONNECT.register((Disconnect)(handler, client) -> {
          WaypointManager.onServerDisconnect();
          StreakManager.onSessionEnd();
+         TargetHudRenderer.resetItemTracker();
+         entityHealthMap.clear();
       });
       ClientLifecycleEvents.CLIENT_STOPPING.register((ClientStopping)client -> {
          WaypointManager.saveWaypoints();
@@ -3095,7 +3097,11 @@ public class VoidCyanClient implements ClientModInitializer {
          }
 
          if (isFullbrightEnabled && client.player != null) {
-            client.player.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, 300, 255, false, false, false));
+            // Only refresh when missing or about to run out, instead of allocating a new effect every tick.
+            StatusEffectInstance nv = client.player.getStatusEffect(StatusEffects.NIGHT_VISION);
+            if (nv == null || nv.getDuration() < 200 || nv.getAmplifier() != 255) {
+               client.player.addStatusEffect(new StatusEffectInstance(StatusEffects.NIGHT_VISION, 300, 255, false, false, false));
+            }
          } else if (!isFullbrightEnabled && client.player != null) {
             StatusEffectInstance effect = client.player.getStatusEffect(StatusEffects.NIGHT_VISION);
             if (effect != null && effect.getAmplifier() == 255) {
@@ -3351,66 +3357,7 @@ public class VoidCyanClient implements ClientModInitializer {
                      long now = System.currentTimeMillis();
                      keystrokeTimestamps.removeIf(t -> now - t > 2000L);
                      pressedKeys.clear();
-                     int[] allKeys = new int[]{
-                        48,
-                        49,
-                        50,
-                        51,
-                        52,
-                        53,
-                        54,
-                        55,
-                        56,
-                        57,
-                        65,
-                        66,
-                        67,
-                        68,
-                        69,
-                        70,
-                        71,
-                        72,
-                        73,
-                        74,
-                        75,
-                        76,
-                        77,
-                        78,
-                        79,
-                        80,
-                        81,
-                        82,
-                        83,
-                        84,
-                        85,
-                        86,
-                        87,
-                        88,
-                        89,
-                        90,
-                        32,
-                        256,
-                        257,
-                        258,
-                        259,
-                        340,
-                        344,
-                        341,
-                        345,
-                        342,
-                        346,
-                        280,
-                        45,
-                        61,
-                        91,
-                        93,
-                        92,
-                        59,
-                        39,
-                        44,
-                        46,
-                        47
-                     };
+                     int[] allKeys = KEYSTROKE_KEYS;
 
                      for (int key : allKeys) {
                         if (GLFW.glfwGetKey(window, key) == 1) {
@@ -3677,6 +3624,8 @@ public class VoidCyanClient implements ClientModInitializer {
          }
       });
    }
+
+   private static final int[] KEYSTROKE_KEYS = {48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 32, 256, 257, 258, 259, 340, 344, 341, 345, 342, 346, 280, 45, 61, 91, 93, 92, 59, 39, 44, 46, 47};
 
    public static void applyScale(DrawContext context, int x, int y, float scale) {
       MinecraftClient _mc = MinecraftClient.getInstance();

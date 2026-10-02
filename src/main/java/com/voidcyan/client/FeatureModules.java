@@ -347,15 +347,14 @@ public final class FeatureModules {
       return s;
    }
 
+   private static final String[] DIRS = {"N (-Z)", "NE", "E (+X)", "SE", "S (+Z)", "SW", "W (-X)", "NW"};
+
    public static String dirText() {
       MinecraftClient mc = MinecraftClient.getInstance();
       if (mc.player == null) return "Facing: -";
       float yaw = net.minecraft.util.math.MathHelper.wrapDegrees(mc.player.getYaw());
-      String[] names = {"S (+Z)", "SW", "W (-X)", "NW", "N (-Z)", "NE", "E (+X)", "SE"};
-      int idx = Math.floorMod(Math.round((yaw + 180.0F) / 45.0F) + 4, 8);
       // yaw 0 = south, 90 = west, 180/-180 = north, -90 = east
-      String[] byIndex = {"N (-Z)", "NE", "E (+X)", "SE", "S (+Z)", "SW", "W (-X)", "NW"};
-      String dir = byIndex[Math.floorMod(Math.round((yaw + 180.0F) / 45.0F), 8)];
+      String dir = DIRS[Math.floorMod(Math.round((yaw + 180.0F) / 45.0F), 8)];
       if (dirShowAngles) {
          return String.format("%s  Yaw %.1f  Pitch %.1f", dir, yaw, mc.player.getPitch());
       }
@@ -427,23 +426,20 @@ public final class FeatureModules {
 
    // =================== Tick ===================
 
-   private static float lastYaw = 0.0F;
-   private static float lastPitch = 0.0F;
-   public static float rotationSpeed = 0.0F;
-
    public static void tick(MinecraftClient mc) {
       if (mc.player == null) return;
-      if (on[SPRINT] && mc.currentScreen == null && mc.options.forwardKey.isPressed() && !mc.player.isSneaking()) {
+      boolean wantSprint = on[SPRINT] && mc.currentScreen == null && mc.options.forwardKey.isPressed() && !mc.player.isSneaking();
+      if (wantSprint) {
          mc.options.sprintKey.setPressed(true);
+         sprintForced = true;
+      } else if (sprintForced) {
+         // Release the key we pressed, so sprint doesn't stay latched after you stop moving or turn the module off.
+         sprintForced = false;
+         mc.options.sprintKey.setPressed(false);
       }
-
-      float yaw = mc.player.getYaw();
-      float pitch = mc.player.getPitch();
-      float d = Math.abs(net.minecraft.util.math.MathHelper.wrapDegrees(yaw - lastYaw)) + Math.abs(pitch - lastPitch);
-      rotationSpeed = rotationSpeed * 0.6F + d * 0.4F;
-      lastYaw = yaw;
-      lastPitch = pitch;
    }
+
+   private static boolean sprintForced = false;
 
    /** Advances the zoom ramp; returns the zoom multiplier target while zoom is active. */
    public static double zoomTarget(double starter, boolean active, double dt) {

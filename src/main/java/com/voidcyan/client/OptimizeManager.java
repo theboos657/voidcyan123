@@ -15,8 +15,8 @@ import net.minecraft.world.RaycastContext;
  * - Optimize Items: item entities hidden when solid blocks block the view ray.
  * - Optimize Chests: chest block entities hidden when occluded by solid blocks.
  * - Optimize Signs: sign text not rendered beyond a configurable distance (1-128 blocks).
- * Occlusion results are cached per block position (cleared every second) so
- * raycasts run at most ~2.5 per block per second instead of every frame.
+ * Occlusion results are cached per block position (cleared every 200 ms, so a player
+ * or item coming around a corner is never hidden for long) so raycasts run at most ~5 per block per second.
  */
 public final class OptimizeManager {
    private OptimizeManager() {}
@@ -36,7 +36,7 @@ public final class OptimizeManager {
 
    private static void tickCache() {
       long now = System.currentTimeMillis();
-      if (now - lastCacheClear > 1000L) {
+      if (now - lastCacheClear > 200L) {
          lastCacheClear = now;
          OCCLUSION_CACHE.clear();
       }

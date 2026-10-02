@@ -29,6 +29,8 @@ public final class FeatureWorld {
    private static VertexConsumer see;
    private static VertexConsumer cur;
    private static Vec3d cam;
+   /** Edges to redraw through blocks: {ax, ay, az, bx, by, bz, thickness, argb}. */
+   private static final java.util.List<double[]> seeEdges = new java.util.ArrayList<>();
 
    /** Set when a frame threw, so a bug can never crash the client every frame. */
    private static boolean broken = false;
@@ -44,13 +46,24 @@ public final class FeatureWorld {
       try {
          entry = matrices.peek();
          buf = context.consumers().getBuffer(RenderLayers.debugQuads());
-         see = context.consumers().getBuffer(RenderLayers.textBackgroundSeeThrough());
+         see = null;
+         seeEdges.clear();
          cur = buf;
          cam = mc.gameRenderer.getCamera().getCameraPos();
          if (FeatureModules.on[FeatureModules.CHUNK]) chunkBorders(mc);
          if (FeatureModules.on[FeatureModules.OVERLAY]) blockOverlay(mc);
          if (FeatureModules.on[FeatureModules.TRAJ]) trajectory(mc);
          if (FeatureModules.on[FeatureModules.PIXEL] && FeatureModules.pixelHighlight) pixelHighlight(mc);
+         if (!seeEdges.isEmpty()) {
+            // Second layer, fetched only after every normal quad is written (fetching a new layer flushes the previous buffer).
+            see = context.consumers().getBuffer(RenderLayers.textBackgroundSeeThrough());
+            cur = see;
+            for (double[] e : seeEdges) {
+               edge(new Vec3d(e[0], e[1], e[2]), new Vec3d(e[3], e[4], e[5]), e[6], (int) e[7]);
+            }
+
+            cur = buf;
+         }
       } catch (Throwable t) {
          broken = true;
          System.err.println("[VoidCyan] Feature world render disabled after error: " + t);
@@ -213,9 +226,7 @@ public final class FeatureWorld {
 
                   edge(pa, pb, th, argb(oc, 255));
                   // Same edge again through the block (no depth test) so the 3D box shows, including the far edges.
-                  cur = see;
-                  edge(pa, pb, th, argb(oc, 90));
-                  cur = buf;
+                  seeEdges.add(new double[]{pa.x, pa.y, pa.z, pb.x, pb.y, pb.z, th, argb(oc, 90)});
                }
             }
          }
