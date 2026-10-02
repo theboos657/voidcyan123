@@ -1,6 +1,7 @@
 package com.voidcyan.client.screen;
 
 import com.voidcyan.client.VoidCyanClient;
+import com.voidcyan.client.util.HudScale;
 import com.voidcyan.client.module.ArrayListManager;
 import com.voidcyan.client.module.DeathInfoManager;
 import com.voidcyan.client.module.EnemyCrucialsHudRenderer;
@@ -426,14 +427,14 @@ public class EditHudScreen extends Screen {
             new ClickGuiScreen.HudElement(
                "Scoreboard",
                () -> VoidCyanClient.isScoreboardEnabled,
-               () -> (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinX : this.width - 103) + VoidCyanClient.scoreboardOffsetX,
-               () -> (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinY : this.height / 2 - 45) + VoidCyanClient.scoreboardOffsetY,
+               () -> Math.round(((VoidCyanClient.sbKnown ? VoidCyanClient.sbMinX : MinecraftClient.getInstance().getWindow().getScaledWidth() - 103) + VoidCyanClient.scoreboardOffsetX) / HudScale.k()),
+               () -> Math.round(((VoidCyanClient.sbKnown ? VoidCyanClient.sbMinY : MinecraftClient.getInstance().getWindow().getScaledHeight() / 2 - 45) + VoidCyanClient.scoreboardOffsetY) / HudScale.k()),
                () -> 1.0F,
-               x -> VoidCyanClient.scoreboardOffsetX = x - (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinX : this.width - 103),
-               y -> VoidCyanClient.scoreboardOffsetY = y - (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinY : this.height / 2 - 45),
+               x -> VoidCyanClient.scoreboardOffsetX = Math.round(x * HudScale.k()) - (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinX : MinecraftClient.getInstance().getWindow().getScaledWidth() - 103),
+               y -> VoidCyanClient.scoreboardOffsetY = Math.round(y * HudScale.k()) - (VoidCyanClient.sbKnown ? VoidCyanClient.sbMinY : MinecraftClient.getInstance().getWindow().getScaledHeight() / 2 - 45),
                s -> {},
-               () -> VoidCyanClient.sbKnown ? VoidCyanClient.sbMaxX - VoidCyanClient.sbMinX : 100,
-               () -> VoidCyanClient.sbKnown ? VoidCyanClient.sbMaxY - VoidCyanClient.sbMinY : 90
+               () -> Math.round((VoidCyanClient.sbKnown ? VoidCyanClient.sbMaxX - VoidCyanClient.sbMinX : 100) / HudScale.k()),
+               () -> Math.round((VoidCyanClient.sbKnown ? VoidCyanClient.sbMaxY - VoidCyanClient.sbMinY : 90) / HudScale.k())
             )
          );
       this.hudElements
@@ -699,6 +700,9 @@ public class EditHudScreen extends Screen {
 
    protected void init() {
       super.init();
+      // Work in the GUI-scale-independent HUD space (same as the in-game HUD), not vanilla scaled pixels.
+      this.width = HudScale.logicalWidth();
+      this.height = HudScale.logicalHeight();
       this.openTime = System.currentTimeMillis();
       this.closing = false;
 
@@ -762,7 +766,7 @@ public class EditHudScreen extends Screen {
       }
 
       float targetScale = 3.0F;
-      float scaleRatio = 1.0F;
+      float scaleRatio = HudScale.k();
       context.getMatrices().pushMatrix();
       context.getMatrices().scale(scaleRatio, scaleRatio);
       int scaledMouseX = (int)(mouseX / scaleRatio);
@@ -786,9 +790,9 @@ public class EditHudScreen extends Screen {
          float scale = 0.88F + 0.12F * progress;
          int alpha = (int)(255.0F * progress);
          context.getMatrices().pushMatrix();
-         context.getMatrices().translate(this.width / (2.0F * scaleRatio), this.height / (2.0F * scaleRatio));
+         context.getMatrices().translate(this.width / 2.0F, this.height / 2.0F);
          context.getMatrices().scale(scale, scale);
-         context.getMatrices().translate(-this.width / (2.0F * scaleRatio), -this.height / (2.0F * scaleRatio));
+         context.getMatrices().translate(-this.width / 2.0F, -this.height / 2.0F);
 
          for (ClickGuiScreen.HudElement el : this.hudElements) {
             boolean enabled = el.isEnabled.get();
@@ -809,7 +813,7 @@ public class EditHudScreen extends Screen {
                context.fill(hX + scaledWidth - 1, hY, hX + scaledWidth, hY + scaledHeight, borderColor);
                context.fill(hX, hY, hX + scaledWidth, hY + scaledHeight, fillAlpha << 24 | VoidCyanClient.getPrimaryColor() & 16777215);
                if (el.name.equals("Mouse Strokes") && enabled) {
-                  MouseStrokesRenderer.renderAt(context, hX, hY, mouseX, mouseY, this.width, this.height);
+                  MouseStrokesRenderer.renderAt(context, hX, hY, scaledMouseX, scaledMouseY, this.width, this.height);
                }
 
                int dotSize = 4;
@@ -843,7 +847,7 @@ public class EditHudScreen extends Screen {
          int btnH = 36;
          int btnX = this.width / 2 - btnW / 2;
          int btnY = this.height / 2 - btnH / 2;
-         boolean btnHovered = mouseX >= btnX && mouseX <= btnX + btnW && mouseY >= btnY && mouseY <= btnY + btnH;
+         boolean btnHovered = scaledMouseX >= btnX && scaledMouseX <= btnX + btnW && scaledMouseY >= btnY && scaledMouseY <= btnY + btnH;
          float hoverTarget = btnHovered ? 1.0F : 0.0F;
          float hoverSpeed = 0.3F;
          this.clickGuiBtnHover = this.clickGuiBtnHover + (hoverTarget - this.clickGuiBtnHover) * hoverSpeed;
@@ -888,7 +892,7 @@ public class EditHudScreen extends Screen {
          int resetBtnH = 20;
          int resetBtnX = this.width / 2 - resetBtnW / 2;
          int resetBtnY = this.height - 30;
-         boolean resetHovered = mouseX >= resetBtnX && mouseX <= resetBtnX + resetBtnW && mouseY >= resetBtnY && mouseY <= resetBtnY + resetBtnH;
+         boolean resetHovered = scaledMouseX >= resetBtnX && scaledMouseX <= resetBtnX + resetBtnW && scaledMouseY >= resetBtnY && scaledMouseY <= resetBtnY + resetBtnH;
          context.fill(resetBtnX, resetBtnY, resetBtnX + resetBtnW, resetBtnY + resetBtnH, resetHovered ? -1426107051 : 1627346261);
          context.drawTextWithShadow(
             this.textRenderer,
@@ -910,7 +914,7 @@ public class EditHudScreen extends Screen {
       }
 
       float targetScale = 3.0F;
-      float scaleRatio = 1.0F;
+      float scaleRatio = HudScale.k();
       double mouseX = click.x() / scaleRatio;
       double mouseY = click.y() / scaleRatio;
       int btnW = 140;
@@ -980,7 +984,7 @@ public class EditHudScreen extends Screen {
          int resetBtnH = 20;
          int resetBtnX = this.width / 2 - resetBtnW / 2;
          int resetBtnY = this.height - 30;
-         if (click.x() >= resetBtnX && click.x() <= resetBtnX + resetBtnW && click.y() >= resetBtnY && click.y() <= resetBtnY + resetBtnH) {
+         if (mouseX >= resetBtnX && mouseX <= resetBtnX + resetBtnW && mouseY >= resetBtnY && mouseY <= resetBtnY + resetBtnH) {
             VoidCyanClient.resetAllHudPositions(this.client);
             return true;
          } else {
@@ -1005,8 +1009,8 @@ public class EditHudScreen extends Screen {
    }
 
    public boolean mouseDragged(Click click, double offsetX, double offsetY) {
-      double mouseX = click.x();
-      double mouseY = click.y();
+      double mouseX = click.x() / HudScale.k();
+      double mouseY = click.y() / HudScale.k();
       if (this.draggingElement != null) {
          int newX = (int)(mouseX - this.dragOffsetX);
          int newY = (int)(mouseY - this.dragOffsetY);

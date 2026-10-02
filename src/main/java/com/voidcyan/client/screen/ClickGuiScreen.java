@@ -3161,11 +3161,11 @@ public class ClickGuiScreen extends Screen {
          int handleSize = 8;
          context.fill(handleX, trackY - 1, handleX + handleSize, trackY + trackHeight + 1, (int)(alpha * 255.0F) << 24 | 16777215);
          int scaleSliderY = y + 60;
-         String scaleLabel = String.format("Click GUI Scale: %.1fx (syncs with GUI Scale video setting)", VoidCyanClient.clickGuiScale);
+         String scaleLabel = String.format("Click GUI Scale: %.1fx", VoidCyanClient.clickGuiScale / GuiScaleManager.CLICK_GUI_SCALE_BASE);
          context.drawTextWithShadow(this.textRenderer, Text.literal(scaleLabel), x + 12, scaleSliderY - 5, textColor);
          int scaleTrackY = scaleSliderY + 8;
          context.fill(x + 12, scaleTrackY, x + 12 + sliderWidth, scaleTrackY + trackHeight, GuiStyle.square() ? (int)(alpha * 255.0F) << 24 | 0x1E232D : (int)(alpha * 100.0F) << 24 | 4210752);
-         float scaleFillRatio = (VoidCyanClient.clickGuiScale - 0.5F) / 1.5F;
+         float scaleFillRatio = (VoidCyanClient.clickGuiScale / GuiScaleManager.CLICK_GUI_SCALE_BASE - 0.5F) / 1.5F;
          int scaleFillWidth = (int)(sliderWidth * scaleFillRatio * alpha);
          context.fill(x + 12, scaleTrackY + 1, x + 12 + scaleFillWidth, scaleTrackY + trackHeight - 1, fillColor);
          int scaleHandleX = x + 12 + scaleFillWidth - 4;
@@ -4344,7 +4344,7 @@ public class ClickGuiScreen extends Screen {
                norm = Math.max(0.0, Math.min(1.0, norm));
                float newScale = 0.5F + (float)norm * 1.5F;
                newScale = Math.round(newScale * 10.0F) / 10.0F;
-               VoidCyanClient.clickGuiScale = newScale;
+               VoidCyanClient.clickGuiScale = newScale * GuiScaleManager.CLICK_GUI_SCALE_BASE;
                this.saveOnRelease = true;
                break;
             }
@@ -4870,7 +4870,7 @@ public class ClickGuiScreen extends Screen {
                            norm = Math.max(0.0, Math.min(1.0, norm));
                            float newScale = 0.5F + (float)norm * 1.5F;
                            newScale = Math.round(newScale * 10.0F) / 10.0F;
-                           VoidCyanClient.clickGuiScale = newScale;
+                           VoidCyanClient.clickGuiScale = newScale * GuiScaleManager.CLICK_GUI_SCALE_BASE;
                            VoidCyanClient.saveConfig();
                            return true;                     } else {
                         return this.handleOptimizeClick(mouseX, mouseY, x, width, cardY)

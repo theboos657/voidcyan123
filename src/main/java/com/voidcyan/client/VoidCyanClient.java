@@ -45,6 +45,7 @@ import com.voidcyan.client.util.AlarmSoundManager;
 import com.voidcyan.client.util.NameProtect;
 import com.voidcyan.client.util.NameProtectMappings;
 import com.voidcyan.client.util.NoteManager;
+import com.voidcyan.client.util.HudScale;
 import com.voidcyan.client.util.WaypointManager;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -351,7 +352,7 @@ public class VoidCyanClient implements ClientModInitializer {
    public static boolean isAppleSkinEnabled = false;
    public static boolean isNotificationsAnimEnabled = true;
    public static int guiAnimationDurationMs = 300;
-   public static float clickGuiScale = 1.0F;
+   public static float clickGuiScale = 1.7F;
    public static int guiType = 0;
    public static int notificationsAnimDirection = 0;
    public static int notificationsX = 10;
@@ -1408,8 +1409,21 @@ public class VoidCyanClient implements ClientModInitializer {
       }
    }
 
+   /** First launch: seed the config file with the bundled default layout, so every new install starts the same. */
+   private static void installDefaultConfig() {
+      if (CONFIG_FILE.exists()) return;
+      try (java.io.InputStream in = VoidCyanClient.class.getResourceAsStream("/assets/voidcyan/default_config.properties")) {
+         if (in == null) return;
+         CONFIG_FILE.getParentFile().mkdirs();
+         Files.copy(in, CONFIG_FILE.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      } catch (Exception e) {
+         System.err.println("[VoidCyan] Could not install default config: " + e);
+      }
+   }
+
    private static void loadConfig() {
       Properties props = new Properties();
+      installDefaultConfig();
       if (CONFIG_FILE.exists()) {
          try (FileReader reader = new FileReader(CONFIG_FILE)) {
             props.load(reader);
@@ -1510,7 +1524,7 @@ public class VoidCyanClient implements ClientModInitializer {
             }
 
             guiAnimationDurationMs = Integer.parseInt(props.getProperty("guiAnimationDurationMs", "300"));
-            clickGuiScale = Float.parseFloat(props.getProperty("clickGuiScale", "1.0"));
+            clickGuiScale = Float.parseFloat(props.getProperty("clickGuiScale", "1.7"));
             guiType = Math.max(0, Math.min(2, Integer.parseInt(props.getProperty("guiProfile", "0"))));
             isArmorStatusEnabled = Boolean.parseBoolean(props.getProperty("isArmorStatusEnabled", "false"));
             allTimeKills = Integer.parseInt(props.getProperty("allTimeKills", "0"));
@@ -3627,14 +3641,16 @@ public class VoidCyanClient implements ClientModInitializer {
 
    public static void applyScale(DrawContext context, int x, int y, float scale) {
       MinecraftClient _mc = MinecraftClient.getInstance();
+      float k = 1.0F;
       if (_mc != null && _mc.getWindow() != null) {
-         int sw = _mc.getWindow().getScaledWidth();
-         int sh = _mc.getWindow().getScaledHeight();
-         x = Math.max(0, Math.min(x, sw - 10));
-         y = Math.max(0, Math.min(y, sh - 10));
+         // Positions are in the GUI-scale-independent HUD space (see HudScale), not vanilla scaled pixels.
+         k = HudScale.k();
+         x = Math.max(0, Math.min(x, HudScale.logicalWidth() - 10));
+         y = Math.max(0, Math.min(y, HudScale.logicalHeight() - 10));
       }
 
       context.getMatrices().pushMatrix();
+      context.getMatrices().scale(k, k);
       context.getMatrices().translate(x, y);
       context.getMatrices().scale(scale, scale);
    }
@@ -4933,7 +4949,7 @@ public class VoidCyanClient implements ClientModInitializer {
 
    public static void resetAllHudPositions(MinecraftClient client) {
       if (client != null && client.getWindow() != null) {
-         int w = client.getWindow().getScaledWidth();
+         int w = HudScale.logicalWidth();
          int midX = w / 2;
          int topY = 50;
          invHudX = midX;

@@ -24,6 +24,9 @@ public final class GuiScaleManager {
    private static final float LOGICAL_W = 520.0F;
    private static final float LOGICAL_H = 292.0F;
 
+   /** Internal multiplier shown as "1.0x" in the settings, so the default look is 1.7x internally. */
+   public static final float CLICK_GUI_SCALE_BASE = 1.7F;
+
    private GuiScaleManager() {
    }
 

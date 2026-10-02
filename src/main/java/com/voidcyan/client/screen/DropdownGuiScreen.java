@@ -1265,11 +1265,11 @@ public class DropdownGuiScreen extends Screen {
          ctx.fill(x + 12, trackY + 1, x + 12 + fillWidth, trackY + 5, primaryColor);
          ctx.fill(x + 12 + fillWidth - 4, trackY - 1, x + 12 + fillWidth + 4, trackY + 7, -1);
          int guiScaleY = guiAnimY + 30;
-         String scaleLabel = String.format("Click GUI Scale: %.1fx (syncs with GUI Scale video setting)", VoidCyanClient.clickGuiScale);
+         String scaleLabel = String.format("Click GUI Scale: %.1fx", VoidCyanClient.clickGuiScale / GuiScaleManager.CLICK_GUI_SCALE_BASE);
          ctx.drawTextWithShadow(c.textRenderer, Text.literal(scaleLabel), x + 12, guiScaleY, -1);
          int scaleTrackY = guiScaleY + 12;
          ctx.fill(x + 12, scaleTrackY, x + 12 + 250, scaleTrackY + 6, -12566464);
-         float scaleFillRatio = (VoidCyanClient.clickGuiScale - 0.5F) / 1.5F;
+         float scaleFillRatio = (VoidCyanClient.clickGuiScale / GuiScaleManager.CLICK_GUI_SCALE_BASE - 0.5F) / 1.5F;
          int scaleFillWidth = (int)(250.0F * scaleFillRatio);
          ctx.fill(x + 12, scaleTrackY + 1, x + 12 + scaleFillWidth, scaleTrackY + 5, primaryColor);
          ctx.fill(x + 12 + scaleFillWidth - 4, scaleTrackY - 1, x + 12 + scaleFillWidth + 4, scaleTrackY + 7, -1);
@@ -1308,7 +1308,7 @@ public class DropdownGuiScreen extends Screen {
 
          if (this.draggingScale) {
             float val = Math.max(0.0F, Math.min(1.0F, (mouseX - (x + 12)) / 250.0F));
-            VoidCyanClient.clickGuiScale = 0.5F + val * 1.5F;
+            VoidCyanClient.clickGuiScale = Math.round((0.5F + val * 1.5F) * 10.0F) / 10.0F * GuiScaleManager.CLICK_GUI_SCALE_BASE;
          }
 
          int btnY = typeY + 30 + 26;
