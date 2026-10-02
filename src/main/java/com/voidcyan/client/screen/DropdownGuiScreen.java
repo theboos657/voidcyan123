@@ -28,7 +28,7 @@ public class DropdownGuiScreen extends Screen {
    private long lastFrameTime;
    private TextFieldWidget searchField;
    private static final String[] TABS = new String[]{
-      "Modules", "Screenshots", "Backgrounds", "Settings", "Friends", "Config", "Statistics", "Notes", "Calculator", "Textures"
+      "Modules", "Screenshots", "Backgrounds", "Settings", "Friends", "Config", "Statistics", "Notes", "Calculator"
    };
    private static final Identifier[] TAB_ICONS = java.util.stream.Stream.of(
       "modules", "screenshots", "backgrounds", "global", "friends", "config", "stats", "stats", "global", "modules"
@@ -839,10 +839,6 @@ public class DropdownGuiScreen extends Screen {
          int tabStartY = this.getSidebarTabStartY();
          int tabSpacing = this.getSidebarTabSpacing();
          int idx = (int)((my - tabStartY) / tabSpacing);
-         if (idx == 9) {
-            MinecraftClient.getInstance().setScreen(new TextureMakerScreen(this));
-            return true;
-         }
          if (activeTab != idx) {
             activeTab = idx;
             int total = 0;

@@ -85,7 +85,7 @@ public class ClickGuiScreen extends Screen {
    private final String[] tabNames = new String[]{
       "Modules", "Screenshots", "Backgrounds", "Settings", "Friends", "Config", "Statistics", "Extras"
    };
-   private final String[] extrasSubTabs = new String[]{"Calculator", "Model", "Textures", "Recipes", "Notes"};
+   private final String[] extrasSubTabs = new String[]{"Calculator", "Model", "Recipes", "Notes"};
    private int extrasSubTab = 0;
    private String recipeSearch = "";
    private boolean isRecipeSearchFocused = false;
@@ -4203,7 +4203,7 @@ public class ClickGuiScreen extends Screen {
       GuiScaleManager.update(this.client);
       double mouseXx = GuiScaleManager.toLogical(mouseX);
       double mouseYx = GuiScaleManager.toLogical(mouseY);
-      if (this.currentTab == 7 && this.extrasSubTab == 4 && this.selectedNoteIndex >= 0) {
+      if (this.currentTab == 7 && this.extrasSubTab == 3 && this.selectedNoteIndex >= 0) {
          this.noteContentScrollOffset = Math.max(0, this.noteContentScrollOffset - (int)(verticalAmount * 11.0));
          return true;
       } else if (this.client != null && !this.client.isWindowFocused()) {
@@ -5629,8 +5629,8 @@ public class ClickGuiScreen extends Screen {
       switch (this.extrasSubTab) {
          case 0 -> this.renderAnimatedCalculatorTab(context, mouseX, mouseY, x, subY, width, alpha);
          case 1 -> this.renderAnimatedPlayerModelTab(context, mouseX, mouseY, x, subY, width, alpha);
-         case 3 -> this.renderAnimatedRecipesTab(context, mouseX, mouseY, x, subY, width, alpha);
-         case 4 -> this.renderAnimatedNotesTab(context, mouseX, mouseY, x, subY, width, alpha);
+         case 2 -> this.renderAnimatedRecipesTab(context, mouseX, mouseY, x, subY, width, alpha);
+         case 3 -> this.renderAnimatedNotesTab(context, mouseX, mouseY, x, subY, width, alpha);
       }
 
       context.disableScissor();
@@ -5641,12 +5641,8 @@ public class ClickGuiScreen extends Screen {
       if (mouseY >= y && mouseY <= y + 20) {
          int i = (int)((mouseX - x) / bw);
          if (i >= 0 && i < this.extrasSubTabs.length) {
-            if (i == 2) {
-               this.client.setScreen(new TextureMakerScreen(this));
-            } else {
-               this.clearTextFocus();
-               this.extrasSubTab = i;
-            }
+            this.clearTextFocus();
+            this.extrasSubTab = i;
 
             return true;
          }
@@ -5656,8 +5652,8 @@ public class ClickGuiScreen extends Screen {
       return switch (this.extrasSubTab) {
          case 0 -> this.handleCalculatorClick(mouseX, mouseY, x, subY, width);
          case 1 -> this.handlePlayerModelClick(mouseX, mouseY, x, subY, width);
-         case 3 -> this.handleRecipesClick(mouseX, mouseY, x, subY, width);
-         case 4 -> this.handleNotesClick(mouseX, mouseY, x, subY, width);
+         case 2 -> this.handleRecipesClick(mouseX, mouseY, x, subY, width);
+         case 3 -> this.handleNotesClick(mouseX, mouseY, x, subY, width);
          default -> false;
       };
    }
