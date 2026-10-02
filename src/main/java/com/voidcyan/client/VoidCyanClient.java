@@ -601,7 +601,6 @@ public class VoidCyanClient implements ClientModInitializer {
    public static int potionStatusOrientation = 0;
    public static boolean potionStatusShowDuration = true;
    public static boolean potionStatusShowAmplifier = true;
-   public static int potionStatusIconType = 0;
    public static int potionStatusStyle = 0;
    public static boolean disableHotbarLooping = false;
    public static boolean isFullbrightEnabled = false;
@@ -2152,7 +2151,6 @@ public class VoidCyanClient implements ClientModInitializer {
             potionStatusOrientation = Integer.parseInt(props.getProperty("potionStatusOrientation", "0"));
             potionStatusShowDuration = Boolean.parseBoolean(props.getProperty("potionStatusShowDuration", "true"));
             potionStatusShowAmplifier = Boolean.parseBoolean(props.getProperty("potionStatusShowAmplifier", "true"));
-            potionStatusIconType = Integer.parseInt(props.getProperty("potionStatusIconType", "0"));
             potionStatusStyle = Integer.parseInt(props.getProperty("potionStatusStyle", "0"));
             armorStatusWarningThreshold = Integer.parseInt(props.getProperty("armorStatusWarningThreshold", "20"));
             armorStatusWarningSound = Boolean.parseBoolean(props.getProperty("armorStatusWarningSound", "true"));
@@ -2683,7 +2681,6 @@ public class VoidCyanClient implements ClientModInitializer {
       props.setProperty("potionStatusOrientation", String.valueOf(potionStatusOrientation));
       props.setProperty("potionStatusShowDuration", String.valueOf(potionStatusShowDuration));
       props.setProperty("potionStatusShowAmplifier", String.valueOf(potionStatusShowAmplifier));
-      props.setProperty("potionStatusIconType", String.valueOf(potionStatusIconType));
       props.setProperty("potionStatusStyle", String.valueOf(potionStatusStyle));
       props.setProperty("isBlockIndicatorEnabled", String.valueOf(isBlockIndicatorEnabled));
       props.setProperty("blockIndicatorX", String.valueOf(blockIndicatorX));

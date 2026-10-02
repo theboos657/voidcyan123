@@ -75,14 +75,8 @@ public class PotionStatusRenderer {
                      iconY = 3 + i * 26;
                   }
 
-                  if (VoidCyanClient.potionStatusIconType == 1) {
-                     Identifier texture = effect.getKey().map(key -> key.getValue().withPrefixedPath("mob_effect/")).orElse(MissingSprite.getMissingSpriteId());
-                     context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, texture, iconX + 2, iconY + 2, 16, 16);
-                  } else {
-                     String fxName = getEffectName(effect);
-                     String iconLetter = fxName.isEmpty() ? "?" : fxName.substring(0, 1);
-                     context.drawTextWithShadow(client.textRenderer, iconLetter, iconX + 10 - client.textRenderer.getWidth(iconLetter) / 2, iconY + 10 - 4, -1);
-                  }
+                  Identifier texture = effect.getKey().map(key -> key.getValue().withPrefixedPath("mob_effect/")).orElse(MissingSprite.getMissingSpriteId());
+                  context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, texture, iconX + 2, iconY + 2, 16, 16);
 
                   int borderCol = effectColor(inst);
                   context.fill(iconX, iconY, iconX + 20, iconY + 1, borderCol);

@@ -11,7 +11,6 @@ public class PotionStatusSettingsScreen extends BaseSettingsScreen {
    @Override
    protected void buildSettings() {
       this.addEnum("Style", new String[]{"Custom", "Vanilla"}, () -> VoidCyanClient.potionStatusStyle, val -> VoidCyanClient.potionStatusStyle = val);
-      this.addEnum("Icon Type", new String[]{"Letter", "Icon"}, () -> VoidCyanClient.potionStatusIconType, val -> VoidCyanClient.potionStatusIconType = val);
       this.addEnum(
          "Orientation",
          new String[]{"Horizontal", "Vertical"},
