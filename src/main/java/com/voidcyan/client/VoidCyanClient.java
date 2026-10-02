@@ -142,8 +142,6 @@ public class VoidCyanClient implements ClientModInitializer {
    private static Map<String, Boolean> moduleKeybindsWasPressed = new HashMap<>();
    // Texture Studio live preview: render-state instance -> canvas texture. Weak keys so
    // states drop out once the deferred GUI entity pass has drawn them.
-   public static final Map<Object, Identifier> previewBaseTextures = new java.util.WeakHashMap<>();
-   public static final Map<Object, Identifier> previewArmorTextures = new java.util.WeakHashMap<>();
    private static boolean guiKeyWasDown = false;
    private static boolean dropdownGuiKeyWasDown = false;
    public static int guiProfile = 0;

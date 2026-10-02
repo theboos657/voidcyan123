@@ -49,7 +49,6 @@
     "EquipmentRendererMixin"
   ],
   "client": [
-    "TexturePreviewMixin",
     "EntityRendererMixin",
     "EntityRendererStateMixin",
     "OptimizeItemEntityMixin",

@@ -78,10 +78,6 @@ public class EquipmentRendererMixin {
          }
       }
       RenderLayer finalLayer = renderLayer;
-      net.minecraft.util.Identifier previewTex = VoidCyanClient.previewArmorTextures.get(state);
-      if (previewTex != null) {
-         finalLayer = model.getLayer(previewTex);
-      }
       queue.submitModel(model, state, matrices, finalLayer, light, finalOverlay, color, sprite, outlineColor, crumblingOverlayCommand);
    }
 }
