@@ -1754,9 +1754,12 @@ public class ClickGuiScreen extends Screen {
          int entityY = cardY + 3;
          // Static 3D model: passing the region center as the mouse position cancels rotation,
          // so the skin stands upright facing the viewer (no cursor tracking, no name tag).
+         // DrawContext.addEntity ignores the GUI matrix, so convert from the Click GUI's logical space to vanilla GUI pixels here.
+         float k = GuiScaleManager.renderScale();
          InventoryScreen.drawEntity(
-            context, entityX, entityY, entityX + 38, entityY + 68, 22, 0.0625F,
-            (float)entityX + 19.0F, (float)entityY + 34.0F, this.client.player
+            context, Math.round(entityX * k), Math.round(entityY * k), Math.round((entityX + 38) * k), Math.round((entityY + 68) * k),
+            Math.max(1, Math.round(22 * k)), 0.0625F,
+            (entityX + 19.0F) * k, (entityY + 34.0F) * k, this.client.player
          );
       }
 
@@ -5993,9 +5996,10 @@ public class ClickGuiScreen extends Screen {
 
       if (this.client != null && this.client.player != null) {
          context.enableScissor(previewX + 1, previewY + 1, previewX + previewW - 1, previewY + previewH - 16);
+         float ek = GuiScaleManager.renderScale();
          InventoryScreen.drawEntity(
-            context, previewX + 6, previewY + 6, previewX + previewW - 6, previewY + previewH - 20,
-            46, 0.0625F, mouseX, mouseY, this.client.player
+            context, Math.round((previewX + 6) * ek), Math.round((previewY + 6) * ek), Math.round((previewX + previewW - 6) * ek), Math.round((previewY + previewH - 20) * ek),
+            Math.max(1, Math.round(46 * ek)), 0.0625F, mouseX * ek, mouseY * ek, this.client.player
          );
          context.disableScissor();
       }

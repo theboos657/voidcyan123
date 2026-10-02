@@ -222,7 +222,12 @@ public class TargetHudRenderer {
                int screenBoxX2 = screenBaseX + (int)(localBoxX2 * hudScale);
                int screenBoxY2 = screenBaseY + (int)(localBoxY2 * hudScale);
                int modelSize = VoidCyanClient.targetHudShowArmor ? 20 : 16;
-               InventoryScreen.drawEntity(context, screenBoxX1, screenBoxY1, screenBoxX2, screenBoxY2, modelSize, 0.0625F, 0.0F, 0.0F, target);
+               // addEntity ignores the GUI matrix: convert from HUD space to vanilla GUI pixels.
+               float hk = com.voidcyan.client.util.HudScale.k();
+               InventoryScreen.drawEntity(
+                  context, Math.round(screenBoxX1 * hk), Math.round(screenBoxY1 * hk), Math.round(screenBoxX2 * hk), Math.round(screenBoxY2 * hk),
+                  Math.max(1, Math.round(modelSize * hk)), 0.0625F, 0.0F, 0.0F, target
+               );
                int textOffsetX = 42;
                int nameColor = withAlpha(16777215, alpha);
                int healthColor = withAlpha(16733525, alpha);
